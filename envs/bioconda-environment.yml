@@ -1,0 +1,9 @@
+name: underlier-prevalence
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # q2 VCF filtering and aggregation runtime
+  - bcftools=1.20
+  - python=3.12.7
+  - pip=24.2
