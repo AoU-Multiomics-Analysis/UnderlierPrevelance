@@ -57,3 +57,31 @@ docker build -f envs/Dockerfile -t underlier-prevalence:test .
   confirm the final image and runtime probes.
 - No WDL files exist yet (Task 5 scope), so WDL image references cannot be
   centralized or made overrideable in this task without expanding scope.
+
+## Fix round 1
+
+- Preserved the q2 environment at `/opt/conda/envs/underlier-prevalence` in the
+  final image, added its `bin` directory to `PATH`, and set
+  `BCFTOOLS_PLUGINS` to its `libexec/bcftools` directory so `+fill-tags` is
+  discoverable.
+- Replaced the Bookworm-specific Posit URL with the distribution-neutral frozen
+  Posit CRAN source snapshot URL.
+- Added Docker build-time probes covering every required R package,
+  `PCAtools::chooseGavishDonoho`, Python `numpy`/`pandas`, `bcftools --version`,
+  and `bcftools +fill-tags -h`.
+- Added Docker CI path triggers for both q2 dependency manifests.
+
+### Validation status
+
+- The fix-round structural check passed: preserved prefix and plugin path,
+  distribution-neutral snapshot URL, required package probes, and CI triggers
+  are all present.
+- A full Docker build was started. It completed the Bioconda q2 environment,
+  copied `/opt/conda` at the preserved prefix, installed system dependencies,
+  resolved the neutral Posit snapshot, and compiled `Rcpp 1.0.14` past the
+  prior failure. It was manually canceled during the longer remaining RNA
+  package compilation at the user's request.
+- Consequently, the final image was not emitted and the post-build
+  `Rscript`, Python, `bcftools --version`, and `bcftools +fill-tags -h` probes
+  remain unexecuted. The Dockerfile now runs all four categories during a
+  successful image build.
