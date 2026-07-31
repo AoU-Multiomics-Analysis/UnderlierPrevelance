@@ -2,19 +2,24 @@ import subprocess
 from pathlib import Path
 
 
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / "tests" / "fixtures"
+
+
 def run_q2(output):
     subprocess.run(
         [
             "python3",
-            "scripts/compute_q2_incidence.py",
+            str(ROOT / "scripts" / "compute_q2_incidence.py"),
             "--clinvar",
-            "tests/fixtures/clinvar.vcf",
+            str(FIXTURES / "clinvar.vcf"),
             "--vcf-glob",
-            "tests/fixtures/cohort.vcf",
+            str(FIXTURES / "cohort.vcf"),
             "--out",
             str(output),
         ],
         check=True,
+        cwd=ROOT,
     )
     return output
 
@@ -23,13 +28,13 @@ def run_filtering(output_dir):
     subprocess.run(
         [
             "bash",
-            "scripts/filter_variants.sh",
+            str(ROOT / "scripts" / "filter_variants.sh"),
             "--input-dir",
-            "tests/fixtures",
+            str(FIXTURES),
             "--output-dir",
             str(output_dir),
             "--af-max",
-            "0.01",
+            "0.25",
             "--missing-max",
             "0.1",
             "--qual-min",
@@ -38,6 +43,7 @@ def run_filtering(output_dir):
             "1",
         ],
         check=True,
+        cwd=ROOT,
     )
     return output_dir / "all.filtered.vcf.gz"
 

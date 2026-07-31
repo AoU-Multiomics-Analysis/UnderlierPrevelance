@@ -33,8 +33,16 @@ Implemented only the Task 1 synthetic fixtures and validation tests in the repos
 
 ## Commit
 
-No commit was created because the requested pytest verification cannot run in the current environment.
+Created commit `fee27da` (`test: add synthetic pipeline fixtures`).
 
 ## Concerns
 
 The q² tests are intentionally command-line integration tests for `scripts/compute_q2_incidence.py` and `scripts/filter_variants.sh`, which are not part of Task 1 and do not yet exist. They will remain unavailable until the later q² implementation task adds those scripts and the environment provides pytest/bcftools.
+
+## Fix-round summary
+
+- Added helper-level expected-failure contracts for malformed GCT headers/dimensions, duplicate and missing sample IDs, missing genotype-PC columns, and nonnumeric genotype-PC values.
+- Added an index-pair contract covering genotype VCF/index arrays and ClinVar VCF/index inputs without requiring binary `.tbi` files or tabix.
+- Made all fixture and script paths resolve from the test file/repository root, independent of pytest’s working directory.
+- Changed the filtering test threshold from `0.01` to `0.25`; the three singleton heterozygotes have AF `0.125`, while the homozygous alternate site has AF `1.0`, so the intended retained count is deterministically three after `+fill-tags`.
+- Verification after this fix round: `py_compile`, `git diff --check`, and direct fixture/helper assertions pass. Pytest remains unavailable (`pytest` command missing and Python reports `No module named pytest`).

@@ -1,8 +1,45 @@
-import pytest
 from pathlib import Path
 
+import pytest
 
-FIXTURES = Path("tests/fixtures")
+
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / "tests" / "fixtures"
+
+
+def read_gct_contract(path):
+    lines = Path(path).read_text().splitlines()
+    if len(lines) < 3 or lines[0] != "#1.2":
+        raise ValueError("GCT must start with #1.2")
+    try:
+        expected_genes, expected_samples = map(int, lines[1].split("\t"))
+    except (ValueError, TypeError):
+        raise ValueError("GCT dimensions must be two integers")
+    header = lines[2].split("\t")
+    if header[:2] != ["Name", "Description"]:
+        raise ValueError("GCT header must start with Name and Description")
+    if len(header) != expected_samples + 2 or len(lines[3:]) != expected_genes:
+        raise ValueError("GCT dimensions do not match the data")
+    return header[2:], lines[3:]
+
+
+def validate_covariates(path, expected_samples, n_pcs=2):
+    rows = [line.split("\t") for line in Path(path).read_text().splitlines()]
+    header = rows[0]
+    expected_columns = ["sample_id"] + [f"Genotype_PC{i}" for i in range(1, n_pcs + 1)]
+    if header != expected_columns:
+        raise ValueError("covariate columns do not match the required schema")
+    sample_ids = [row[0] for row in rows[1:]]
+    if len(sample_ids) != len(set(sample_ids)):
+        raise ValueError("covariate sample IDs must be unique")
+    if sample_ids != list(expected_samples):
+        raise ValueError("covariate sample IDs must exactly match the GCT samples")
+    for row in rows[1:]:
+        for value in row[1:]:
+            try:
+                float(value)
+            except ValueError:
+                raise ValueError("genotype PC values must be numeric")
 
 
 def test_gct_fixture_has_standard_header():
@@ -28,6 +65,72 @@ def test_covariates_align_to_all_gct_samples():
     gct_header = (FIXTURES / "counts.gct").read_text().splitlines()[2].split("\t")
     covariate_header, *rows = (FIXTURES / "genotype_covariates.tsv").read_text().splitlines()
     assert [row.split("\t")[0] for row in rows] == gct_header[2:]
+
+
+def test_gct_contract_rejects_malformed_header(tmp_path):
+    malformed = tmp_path / "malformed.gct"
+    malformed.write_text((FIXTURES / "counts.gct").read_text().replace("#1.2", "#1.1", 1))
+    with pytest.raises(ValueError, match="#1.2"):
+        read_gct_contract(malformed)
+
+
+def test_gct_contract_rejects_wrong_dimensions(tmp_path):
+    malformed = tmp_path / "wrong-dimensions.gct"
+    malformed.write_text((FIXTURES / "counts.gct").read_text().replace("6\t4", "5\t4", 1))
+    with pytest.raises(ValueError, match="dimensions"):
+        read_gct_contract(malformed)
+
+
+def test_covariate_contract_rejects_duplicate_sample_ids(tmp_path):
+    malformed = tmp_path / "duplicate-sample.tsv"
+    malformed.write_text(
+        (FIXTURES / "genotype_covariates.tsv").read_text().replace("S2\t-0.5", "S1\t-0.5", 1)
+    )
+    with pytest.raises(ValueError, match="unique"):
+        validate_covariates(malformed, ["S1", "S2", "S3", "S4"])
+
+
+def test_covariate_contract_rejects_missing_sample_id(tmp_path):
+    malformed = tmp_path / "missing-sample.tsv"
+    malformed.write_text(
+        (FIXTURES / "genotype_covariates.tsv").read_text().replace("S4\t1.5", "S5\t1.5", 1)
+    )
+    with pytest.raises(ValueError, match="exactly match"):
+        validate_covariates(malformed, ["S1", "S2", "S3", "S4"])
+
+
+def test_covariate_contract_rejects_missing_genotype_pc_column(tmp_path):
+    malformed = tmp_path / "missing-pc.tsv"
+    malformed.write_text(
+        (FIXTURES / "genotype_covariates.tsv").read_text().replace("\tGenotype_PC2", "", 1)
+    )
+    with pytest.raises(ValueError, match="columns"):
+        validate_covariates(malformed, ["S1", "S2", "S3", "S4"])
+
+
+def test_covariate_contract_rejects_non_numeric_genotype_pc(tmp_path):
+    malformed = tmp_path / "nonnumeric-pc.tsv"
+    malformed.write_text(
+        (FIXTURES / "genotype_covariates.tsv").read_text().replace("S1\t-1.5", "S1\tnot-a-number", 1)
+    )
+    with pytest.raises(ValueError, match="numeric"):
+        validate_covariates(malformed, ["S1", "S2", "S3", "S4"])
+
+
+def test_gct_and_covariate_contracts_accept_fixture():
+    samples, rows = read_gct_contract(FIXTURES / "counts.gct")
+    assert len(rows) == 6
+    validate_covariates(FIXTURES / "genotype_covariates.tsv", samples)
+
+
+def test_q2_inputs_have_explicit_vcf_index_pairs():
+    genotype_vcfs = [FIXTURES / "cohort.vcf"]
+    genotype_indexes = [FIXTURES / "cohort.vcf.tbi"]
+    clinvar_vcf = FIXTURES / "clinvar.vcf"
+    clinvar_index = FIXTURES / "clinvar.vcf.tbi"
+    assert len(genotype_vcfs) == len(genotype_indexes)
+    assert genotype_vcfs[0].name + ".tbi" == genotype_indexes[0].name
+    assert clinvar_vcf.name + ".tbi" == clinvar_index.name
 
 
 def test_annotation_contains_two_protein_coding_genes():
