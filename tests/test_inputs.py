@@ -20,6 +20,12 @@ def read_gct_contract(path):
         raise ValueError("GCT header must start with Name and Description")
     if len(header) != expected_samples + 2 or len(lines[3:]) != expected_genes:
         raise ValueError("GCT dimensions do not match the data")
+    for row_number, line in enumerate(lines[3:], start=4):
+        fields = line.split("\t")
+        if len(fields) != expected_samples + 2:
+            raise ValueError(f"GCT row {row_number} has the wrong field count")
+        if not fields[0] or not fields[1]:
+            raise ValueError(f"GCT row {row_number} has missing Name or Description")
     return header[2:], lines[3:]
 
 
@@ -29,6 +35,9 @@ def validate_covariates(path, expected_samples, n_pcs=2):
     expected_columns = ["sample_id"] + [f"Genotype_PC{i}" for i in range(1, n_pcs + 1)]
     if header != expected_columns:
         raise ValueError("covariate columns do not match the required schema")
+    for row_number, row in enumerate(rows[1:], start=2):
+        if len(row) != len(header):
+            raise ValueError(f"covariate row {row_number} has the wrong field count")
     sample_ids = [row[0] for row in rows[1:]]
     if len(sample_ids) != len(set(sample_ids)):
         raise ValueError("covariate sample IDs must be unique")
@@ -81,6 +90,25 @@ def test_gct_contract_rejects_wrong_dimensions(tmp_path):
         read_gct_contract(malformed)
 
 
+def test_gct_contract_rejects_truncated_data_row(tmp_path):
+    malformed = tmp_path / "truncated-row.gct"
+    malformed.write_text(
+        (FIXTURES / "counts.gct").read_text().replace("GENE1\tGene 1\t10\t12\t14\t16", "GENE1\tGene 1\t10\t12\t14", 1)
+    )
+    with pytest.raises(ValueError, match="field count"):
+        read_gct_contract(malformed)
+
+
+@pytest.mark.parametrize("replacement", ["\tGene 1\t10", "GENE1\t\t10"])
+def test_gct_contract_rejects_missing_metadata(tmp_path, replacement):
+    malformed = tmp_path / "missing-metadata.gct"
+    malformed.write_text(
+        (FIXTURES / "counts.gct").read_text().replace("GENE1\tGene 1\t10", replacement, 1)
+    )
+    with pytest.raises(ValueError, match="missing Name or Description"):
+        read_gct_contract(malformed)
+
+
 def test_covariate_contract_rejects_duplicate_sample_ids(tmp_path):
     malformed = tmp_path / "duplicate-sample.tsv"
     malformed.write_text(
@@ -117,6 +145,15 @@ def test_covariate_contract_rejects_non_numeric_genotype_pc(tmp_path):
         validate_covariates(malformed, ["S1", "S2", "S3", "S4"])
 
 
+def test_covariate_contract_rejects_truncated_row(tmp_path):
+    malformed = tmp_path / "truncated-row.tsv"
+    malformed.write_text(
+        (FIXTURES / "genotype_covariates.tsv").read_text().replace("S1\t-1.5\t0.5", "S1\t-1.5", 1)
+    )
+    with pytest.raises(ValueError, match="field count"):
+        validate_covariates(malformed, ["S1", "S2", "S3", "S4"])
+
+
 def test_gct_and_covariate_contracts_accept_fixture():
     samples, rows = read_gct_contract(FIXTURES / "counts.gct")
     assert len(rows) == 6
@@ -124,13 +161,20 @@ def test_gct_and_covariate_contracts_accept_fixture():
 
 
 def test_q2_inputs_have_explicit_vcf_index_pairs():
-    genotype_vcfs = [FIXTURES / "cohort.vcf"]
-    genotype_indexes = [FIXTURES / "cohort.vcf.tbi"]
-    clinvar_vcf = FIXTURES / "clinvar.vcf"
-    clinvar_index = FIXTURES / "clinvar.vcf.tbi"
+    manifest = (FIXTURES / "vcf_inputs.tsv").read_text().splitlines()
+    entries = [dict(zip(manifest[0].split("\t"), line.split("\t"))) for line in manifest[1:]]
+    genotype = [entry for entry in entries if entry["role"] == "genotype"]
+    clinvar = next(entry for entry in entries if entry["role"] == "clinvar")
+    genotype_vcfs = [FIXTURES / entry["vcf"] for entry in genotype]
+    genotype_indexes = [FIXTURES / entry["index"] for entry in genotype]
+    clinvar_vcf = FIXTURES / clinvar["vcf"]
+    clinvar_index = FIXTURES / clinvar["index"]
     assert len(genotype_vcfs) == len(genotype_indexes)
-    assert genotype_vcfs[0].name + ".tbi" == genotype_indexes[0].name
+    assert all(path.exists() for path in genotype_vcfs + genotype_indexes)
+    assert clinvar_vcf.exists() and clinvar_index.exists()
+    assert all(vcf.name + ".tbi" == index.name for vcf, index in zip(genotype_vcfs, genotype_indexes))
     assert clinvar_vcf.name + ".tbi" == clinvar_index.name
+    # These placeholders validate path pairing only; WDL/bcftools must validate real tabix indexes later.
 
 
 def test_annotation_contains_two_protein_coding_genes():
