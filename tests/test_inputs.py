@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,36 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
+
+
+def run_converter(input_path, output_path):
+    return subprocess.run(
+        [
+            "python3",
+            str(ROOT / "scripts" / "convert_gct.py"),
+            "--input",
+            str(input_path),
+            "--output",
+            str(output_path),
+        ],
+        check=True,
+    )
+
+
+def test_convert_gct_writes_gene_id_and_sample_columns(tmp_path):
+    output = tmp_path / "counts.tsv"
+    run_converter(FIXTURES / "counts.gct", output)
+    header = output.read_text().splitlines()[0].split("\t")
+    assert header == ["gene_id", "S1", "S2", "S3", "S4"]
+
+
+def test_converter_rejects_duplicate_gene_ids(tmp_path):
+    bad = tmp_path / "bad.gct"
+    bad.write_text(
+        (FIXTURES / "counts.gct").read_text().replace("GENE2", "GENE1", 1)
+    )
+    with pytest.raises(subprocess.CalledProcessError):
+        run_converter(bad, tmp_path / "out.tsv")
 
 
 def parse_vcf_manifest(path):
