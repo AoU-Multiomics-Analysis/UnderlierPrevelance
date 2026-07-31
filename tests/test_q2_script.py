@@ -29,21 +29,23 @@ def read_paired_vcf_inputs():
     return genotype_vcfs, genotype_indexes, clinvar_vcf, clinvar_index
 
 
-def run_q2(output):
+def run_q2(output, vcf_glob=None, genes=None):
     genotype_vcfs, genotype_indexes, clinvar_vcf, clinvar_index = read_paired_vcf_inputs()
     assert len(genotype_vcfs) == len(genotype_indexes) == 2
-    cohort_glob = str(FIXTURES / "cohort*.vcf")
+    command = [
+        "python3",
+        str(ROOT / "scripts" / "compute_q2_incidence.py"),
+        "--clinvar",
+        str(clinvar_vcf),
+        "--vcf-glob",
+        vcf_glob or str(FIXTURES / "cohort*.vcf"),
+        "--out",
+        str(output),
+    ]
+    if genes is not None:
+        command.extend(["--genes", str(genes)])
     subprocess.run(
-        [
-            "python3",
-            str(ROOT / "scripts" / "compute_q2_incidence.py"),
-            "--clinvar",
-            str(clinvar_vcf),
-            "--vcf-glob",
-            cohort_glob,
-            "--out",
-            str(output),
-        ],
+        command,
         check=True,
         cwd=ROOT,
     )
@@ -97,6 +99,87 @@ def test_q2_output_contains_required_columns(tmp_path):
         "incidence",
         "carrier_freq",
     ]
+
+
+def test_q2_uses_maximum_duplicate_allele_af_and_gene_level_q(tmp_path):
+    clinvar = tmp_path / "clinvar.vcf"
+    clinvar.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##INFO=<ID=CLNSIG,Number=.,Type=String,Description=\"Clinical significance\">\n"
+        "##INFO=<ID=GENE,Number=1,Type=String,Description=\"Gene symbol\">\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t10\t.\tA\tG\t.\tPASS\tCLNSIG=Pathogenic;GENE=GENE1\n"
+        "chr1\t20\t.\tC\tT\t.\tPASS\tCLNSIG=Likely_pathogenic;GENE=GENE1\n"
+    )
+    cohort_header = (
+        "##fileformat=VCFv4.2\n"
+        "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\tS2\n"
+    )
+    (tmp_path / "cohort_low.vcf").write_text(
+        cohort_header + "chr1\t10\t.\tA\tG\t200\tPASS\t.\tGT\t0/1\t0/0\n"
+    )
+    (tmp_path / "cohort_high.vcf").write_text(
+        cohort_header
+        + "chr1\t10\t.\tA\tG\t200\tPASS\t.\tGT\t1/1\t0/0\n"
+        + "chr1\t20\t.\tC\tT\t200\tPASS\t.\tGT\t0/1\t0/0\n"
+    )
+
+    output = tmp_path / "q2.tsv"
+    subprocess.run(
+        [
+            "python3",
+            str(ROOT / "scripts" / "compute_q2_incidence.py"),
+            "--clinvar",
+            str(clinvar),
+            "--vcf-glob",
+            str(tmp_path / "cohort_*.vcf"),
+            "--out",
+            str(output),
+        ],
+        check=True,
+        cwd=ROOT,
+    )
+
+    row = dict(zip(output.read_text().splitlines()[0].split("\t"), output.read_text().splitlines()[1].split("\t")))
+    assert row == {
+        "gene": "GENE1",
+        "n_plp_alleles_clinvar": "2",
+        "n_plp_alleles_observed": "2",
+        "q": "0.75",
+        "incidence": "0.5625",
+        "carrier_freq": "0.9375",
+    }
+
+
+def test_q2_rejects_a_vcf_glob_that_matches_no_files(tmp_path):
+    result = subprocess.run(
+        [
+            "python3",
+            str(ROOT / "scripts" / "compute_q2_incidence.py"),
+            "--clinvar",
+            str(FIXTURES / "clinvar.vcf"),
+            "--vcf-glob",
+            str(tmp_path / "missing_*.vcf"),
+            "--out",
+            str(tmp_path / "q2.tsv"),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    assert result.returncode != 0
+    assert "matched no VCF files" in result.stderr
+
+
+def test_q2_gene_whitelist_limits_output_genes(tmp_path):
+    genes = tmp_path / "genes.txt"
+    genes.write_text("GENE2\n")
+
+    output = run_q2(tmp_path / "q2.tsv", genes=genes)
+
+    assert output.read_text().splitlines()[1].split("\t")[0] == "GENE2"
+    assert len(output.read_text().splitlines()) == 2
 
 
 def test_q2_helper_covers_all_genotype_vcf_index_pairs():
