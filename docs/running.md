@@ -57,7 +57,7 @@ For each gene, an observation must first have PC-adjusted log2-CPM less than tha
 
 ### RNA outputs
 
-At the WDL interface, the RNA branch exposes named `converted_counts_tsv`, `selected_pc_metadata`, and `expr_z_join` outputs plus two `Array[File]` outputs: `underlier_artifacts` and `prevalence_artifacts`. The named outputs map to `counts.tsv`, `selected_phenotype_pcs.tsv`, and `expr_z_join.tsv.gz`, respectively. The following files are members of the artifact arrays; they are not individually named WDL output fields. These outputs are concrete in `rna_underlier.wdl` and optional from `main.wdl` when `run_rna` is false.
+At the `rna_underlier.wdl` interface, the RNA branch exposes named `converted_counts_tsv`, `selected_pc_metadata`, and `expr_z_join` outputs plus three `Array[File]` outputs: `underlier_artifacts`, `prevalence_artifacts`, and `all_rna_artifacts`. The named outputs map to `counts.tsv`, `selected_phenotype_pcs.tsv`, and `expr_z_join.tsv.gz`, respectively. `all_rna_artifacts` is the complete `glob("rna_outputs/*")` collection, so it includes all RNA output files rather than only the two underlier and two prevalence artifacts. The following files are members of the narrower artifact arrays; they are not individually named WDL output fields.
 
 | Artifact array | File | Meaning |
 | --- | --- |
@@ -67,6 +67,17 @@ At the WDL interface, the RNA branch exposes named `converted_counts_tsv`, `sele
 | `prevalence_artifacts` | `rna_outlier_prevalence_per_gene_z_-3.tsv` | Per-gene prevalence for strict calls. |
 
 Each prevalence table contains `gene_id`, version-stripped `gene_nv`, `symbol`, `n_underlier_subjects`, `n_subjects_tested`, and `rna_outlier_prevalence = n_underlier_subjects / n_subjects_tested`. Subjects are counted once per gene even if a table could otherwise contain duplicate rows.
+
+`main.wdl` exposes the same RNA results through optional aliases when `main.run_rna` is `true`; each alias is absent when that branch is disabled:
+
+| `rna_underlier.wdl` output | `main.wdl` RNA output alias |
+| --- | --- |
+| `converted_counts_tsv` | `rna_converted_counts_tsv` |
+| `selected_pc_metadata` | `rna_selected_pc_metadata` |
+| `expr_z_join` | `rna_expr_z_join` |
+| `underlier_artifacts` | `rna_underlier_artifacts` |
+| `prevalence_artifacts` | `rna_prevalence_artifacts` |
+| `all_rna_artifacts` (`rna_outputs/*`) | `rna_all_artifacts` |
 
 ## q² incidence
 
