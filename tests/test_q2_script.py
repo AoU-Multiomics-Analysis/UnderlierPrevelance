@@ -1,5 +1,8 @@
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -216,6 +219,90 @@ def test_q2_rejects_a_vcf_glob_that_matches_no_files(tmp_path):
     assert "matched no VCF files" in result.stderr
 
 
+@pytest.mark.parametrize(
+    "record",
+    [
+        "",
+        "chr1\t10\t.\tA\tG\t.\tPASS\tCLNSIG=Pathogenic\n",
+    ],
+)
+def test_q2_rejects_clinvar_without_gene_assigned_plp_small_variants(tmp_path, record):
+    clinvar = tmp_path / "unusable-clinvar.vcf"
+    clinvar.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##INFO=<ID=CLNSIG,Number=.,Type=String,Description=\"Clinical significance\">\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        + record
+    )
+    cohort = tmp_path / "cohort.vcf"
+    cohort.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele frequency\">\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t10\t.\tA\tG\t200\tPASS\tAF=0.1\n"
+    )
+
+    output = tmp_path / "q2.tsv"
+    result = subprocess.run(
+        [
+            "python3",
+            str(ROOT / "scripts" / "compute_q2_incidence.py"),
+            "--clinvar",
+            str(clinvar),
+            "--vcf-glob",
+            str(cohort),
+            "--out",
+            str(output),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+
+    assert result.returncode != 0
+    assert "no eligible P/LP small variants assigned to genes" in result.stderr
+
+
+def test_q2_rejects_gene_cumulative_q_greater_than_one(tmp_path):
+    clinvar = tmp_path / "clinvar.vcf"
+    clinvar.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##INFO=<ID=CLNSIG,Number=.,Type=String,Description=\"Clinical significance\">\n"
+        "##INFO=<ID=GENE,Number=1,Type=String,Description=\"Gene symbol\">\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t10\t.\tA\tG\t.\tPASS\tCLNSIG=Pathogenic;GENE=GENE1\n"
+        "chr1\t20\t.\tC\tT\t.\tPASS\tCLNSIG=Likely_pathogenic;GENE=GENE1\n"
+    )
+    cohort = tmp_path / "cohort.vcf"
+    cohort.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele frequency\">\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t10\t.\tA\tG\t200\tPASS\tAF=0.6\n"
+        "chr1\t20\t.\tC\tT\t200\tPASS\tAF=0.6\n"
+    )
+
+    output = tmp_path / "q2.tsv"
+    result = subprocess.run(
+        [
+            "python3",
+            str(ROOT / "scripts" / "compute_q2_incidence.py"),
+            "--clinvar",
+            str(clinvar),
+            "--vcf-glob",
+            str(cohort),
+            "--out",
+            str(output),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+
+    assert result.returncode != 0
+    assert "cumulative q exceeds 1 for gene GENE1" in result.stderr
+
+
 def test_q2_gene_whitelist_limits_output_genes(tmp_path):
     genes = tmp_path / "genes.txt"
     genes.write_text("GENE2\n")
@@ -230,6 +317,80 @@ def test_q2_helper_covers_all_genotype_vcf_index_pairs():
     genotype_vcfs, genotype_indexes, _, _ = read_paired_vcf_inputs()
     assert len(genotype_vcfs) == len(genotype_indexes) == 2
     assert {path.name for path in genotype_vcfs} == {"cohort.vcf", "cohort_2.vcf"}
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [("--af-max", "1.01"), ("--missing-max", "-0.01")],
+)
+def test_filtering_rejects_probability_thresholds_outside_unit_interval(
+    tmp_path, option, value
+):
+    arguments = {
+        "--af-max": "0.25",
+        "--missing-max": "0.1",
+    }
+    arguments[option] = value
+    result = subprocess.run(
+        [
+            "bash",
+            str(ROOT / "scripts" / "filter_variants.sh"),
+            "--input-dir",
+            str(FIXTURES),
+            "--output-dir",
+            str(tmp_path / "filtered"),
+            "--af-max",
+            arguments["--af-max"],
+            "--missing-max",
+            arguments["--missing-max"],
+            "--qual-min",
+            "125",
+            "--threads",
+            "1",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+
+    assert result.returncode == 2
+    assert f"{option} must be between 0 and 1 inclusive" in result.stderr
+
+
+@pytest.mark.skipif(shutil.which("bcftools") is None, reason="bcftools is required")
+def test_filtering_rejects_shards_with_different_sample_order(tmp_path):
+    input_dir = tmp_path / "inputs"
+    input_dir.mkdir()
+    first = (FIXTURES / "cohort.vcf").read_text()
+    (input_dir / "chr1.vcf").write_text(first)
+    (input_dir / "chr2.vcf").write_text(
+        first.replace("\tS1\tS2\tS3\tS4\n", "\tS2\tS1\tS3\tS4\n", 1)
+    )
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(ROOT / "scripts" / "filter_variants.sh"),
+            "--input-dir",
+            str(input_dir),
+            "--output-dir",
+            str(tmp_path / "filtered"),
+            "--af-max",
+            "0.25",
+            "--missing-max",
+            "0.1",
+            "--qual-min",
+            "125",
+            "--threads",
+            "1",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+
+    assert result.returncode == 2
+    assert "identical sample IDs in identical order" in result.stderr
 
 
 def test_filtering_removes_nonbiallelic_and_high_af_sites(tmp_path):

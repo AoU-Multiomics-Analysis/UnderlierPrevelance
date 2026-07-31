@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -51,79 +53,97 @@ def parse_count(value: str, row_number: int, sample_id: str) -> float:
     return count
 
 
-def read_gct(path: Path) -> tuple[list[str], list[list[float | str]]]:
+def convert_gct(input_path: Path, output_path: Path) -> None:
+    """Stream a validated GCT to an atomically replaced counts TSV."""
+    temporary_path: Path | None = None
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        with input_path.open("r", encoding="utf-8", newline="") as input_handle:
+            version_line = input_handle.readline()
+            dimensions_line = input_handle.readline()
+            header_line = input_handle.readline()
+            if not version_line or not dimensions_line or not header_line:
+                raise GCTValidationError(
+                    "GCT must contain a version, dimensions, and header line"
+                )
+            if version_line.rstrip("\r\n").lstrip("\ufeff") != "#1.2":
+                raise GCTValidationError(
+                    "GCT must start with the standard #1.2 header"
+                )
+
+            n_genes, n_samples = parse_dimensions(dimensions_line)
+            header = split_tab(header_line, 3)
+            if header[:2] != ["Name", "Description"]:
+                raise GCTValidationError(
+                    "GCT header must begin with Name and Description"
+                )
+            if len(header) != n_samples + 2:
+                raise GCTValidationError(
+                    "GCT header sample count does not match the declared dimensions"
+                )
+            sample_ids = header[2:]
+            if any(not sample_id for sample_id in sample_ids):
+                raise GCTValidationError("GCT sample IDs must not be empty")
+            if len(set(sample_ids)) != len(sample_ids):
+                raise GCTValidationError("GCT sample IDs must be unique")
+
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                newline="",
+                dir=output_path.parent,
+                prefix=f".{output_path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                writer = csv.writer(temporary, delimiter="\t", lineterminator="\n")
+                writer.writerow(["gene_id", *sample_ids])
+                expected_fields = n_samples + 2
+                seen_gene_ids: set[str] = set()
+                row_count = 0
+                for row_number, line in enumerate(input_handle, start=4):
+                    row_count += 1
+                    if row_count > n_genes:
+                        raise GCTValidationError(
+                            "GCT gene count does not match the declared dimensions"
+                        )
+                    fields = split_tab(line, row_number)
+                    if len(fields) != expected_fields:
+                        raise GCTValidationError(
+                            f"GCT row {row_number} has {len(fields)} fields; "
+                            f"expected {expected_fields}"
+                        )
+                    gene_id, description = fields[:2]
+                    if not gene_id or not description:
+                        raise GCTValidationError(
+                            f"GCT row {row_number} must contain nonempty Name and "
+                            "Description values"
+                        )
+                    if gene_id in seen_gene_ids:
+                        raise GCTValidationError(
+                            f"GCT contains duplicate gene ID {gene_id!r}"
+                        )
+                    seen_gene_ids.add(gene_id)
+                    counts = [
+                        parse_count(value, row_number, sample_id)
+                        for sample_id, value in zip(sample_ids, fields[2:])
+                    ]
+                    writer.writerow([gene_id, *counts])
+                if row_count != n_genes:
+                    raise GCTValidationError(
+                        "GCT gene count does not match the declared dimensions"
+                    )
+
+            os.replace(temporary_path, output_path)
+            temporary_path = None
     except OSError as error:
         raise GCTValidationError(
-            f"could not read GCT input {path}: {error}"
+            f"could not convert GCT input {input_path} to {output_path}: {error}"
         ) from error
-
-    if len(lines) < 3:
-        raise GCTValidationError(
-            "GCT must contain a version, dimensions, and header line"
-        )
-    if lines[0].lstrip("\ufeff") != "#1.2":
-        raise GCTValidationError("GCT must start with the standard #1.2 header")
-
-    n_genes, n_samples = parse_dimensions(lines[1])
-    header = split_tab(lines[2], 3)
-    if header[:2] != ["Name", "Description"]:
-        raise GCTValidationError("GCT header must begin with Name and Description")
-    if len(header) != n_samples + 2:
-        raise GCTValidationError(
-            "GCT header sample count does not match the declared dimensions"
-        )
-    sample_ids = header[2:]
-    if any(not sample_id for sample_id in sample_ids):
-        raise GCTValidationError("GCT sample IDs must not be empty")
-    if len(set(sample_ids)) != len(sample_ids):
-        raise GCTValidationError("GCT sample IDs must be unique")
-    if len(lines[3:]) != n_genes:
-        raise GCTValidationError(
-            "GCT gene count does not match the declared dimensions"
-        )
-
-    seen_gene_ids: set[str] = set()
-    rows: list[list[float | str]] = []
-    expected_fields = n_samples + 2
-    for row_number, line in enumerate(lines[3:], start=4):
-        fields = split_tab(line, row_number)
-        if len(fields) != expected_fields:
-            raise GCTValidationError(
-                f"GCT row {row_number} has {len(fields)} fields; "
-                f"expected {expected_fields}"
-            )
-        gene_id, description = fields[:2]
-        if not gene_id or not description:
-            raise GCTValidationError(
-                f"GCT row {row_number} must contain nonempty Name and "
-                "Description values"
-            )
-        if gene_id in seen_gene_ids:
-            raise GCTValidationError(f"GCT contains duplicate gene ID {gene_id!r}")
-        seen_gene_ids.add(gene_id)
-        counts = [
-            parse_count(value, row_number, sample_id)
-            for sample_id, value in zip(sample_ids, fields[2:])
-        ]
-        rows.append([gene_id, *counts])
-    return sample_ids, rows
-
-
-def write_counts_tsv(
-    path: Path, sample_ids: list[str], rows: list[list[float | str]]
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with path.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.writer(handle, delimiter="\t", lineterminator="\n")
-            writer.writerow(["gene_id", *sample_ids])
-            writer.writerows(rows)
-    except OSError as error:
-        raise GCTValidationError(
-            f"could not write converted counts to {path}: {error}"
-        ) from error
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -138,8 +158,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        sample_ids, rows = read_gct(args.input)
-        write_counts_tsv(args.output, sample_ids, rows)
+        convert_gct(args.input, args.output)
     except GCTValidationError as error:
         print(f"convert_gct.py: error: {error}", file=sys.stderr)
         return 2

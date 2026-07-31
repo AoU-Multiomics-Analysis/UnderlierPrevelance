@@ -39,8 +39,10 @@ GFF/GFF3, and a precomputed genotype-covariate TSV. The workflow does not
 derive genotype PCs, run PLINK, convert to GDS, or perform LD pruning.
 
 q² requires paired cohort VCF/VCF.GZ and `.tbi` index arrays plus a paired
-ClinVar VCF/VCF.GZ and index. It filters variants before matching ClinVar P/LP
-small variants.
+ClinVar VCF/VCF.GZ and index. The cohort array must contain chromosome or
+region shards with identical sample IDs in identical order; independent
+cohorts cannot be concatenated through this interface. It filters variants
+before matching ClinVar P/LP small variants.
 
 ## Outputs
 

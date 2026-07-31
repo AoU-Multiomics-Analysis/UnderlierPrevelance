@@ -38,6 +38,8 @@ For a branch-only invocation, use the matching workflow and an input JSON whose 
 
 The workflow converts this GCT to its internal `gene_id`-by-sample TSV. It matches genes to protein-coding `gene` records in `rna_gencode_gff`; the GFF or GFF3 must include `gene_id` and `gene_type` or `gene_biotype` attributes.
 
+GCT conversion is streamed and validated one gene row at a time, then atomically renamed into place only after the declared dimensions and every row pass validation. Converter memory therefore scales with the sample header, one numeric row, and the set of gene IDs needed for duplicate detection rather than with the full count matrix. The `ConvertGct` task retains its 2 GiB memory request; allow local disk for the converted TSV and note that the downstream R analysis still loads the converted matrix and has a separate 16 GiB request.
+
 `rna_genotype_covariates_tsv` is a tab-delimited table with this schema:
 
 ```text
@@ -83,9 +85,9 @@ Each prevalence table contains `gene_id`, version-stripped `gene_nv`, `symbol`, 
 
 ### Required input contract
 
-Supply equally sized `q2_genotype_vcfs` and `q2_genotype_vcf_indexes` arrays. Each index filename must be the matching VCF filename plus `.tbi`. Supply the same paired contract for `q2_clinvar_vcf` and `q2_clinvar_vcf_index`. Inputs may be VCF or VCF.GZ files. `q2_gene_whitelist` is optional and accepts one gene symbol per non-comment line.
+Supply equally sized `q2_genotype_vcfs` and `q2_genotype_vcf_indexes` arrays. Each index filename must be the matching VCF filename plus `.tbi`. The genotype VCF array is a set of chromosome or region shards from one cohort, not a collection of independent cohorts: every genotype-bearing shard must contain identical sample IDs in identical order. Filtering fails before `bcftools concat` if a shard differs. Supply the same paired contract for `q2_clinvar_vcf` and `q2_clinvar_vcf_index`. Inputs may be VCF or VCF.GZ files. `q2_gene_whitelist` is optional and accepts one gene symbol per non-comment line.
 
-Before aggregation, the workflow retains biallelic variants and recomputes `AC`, `AN`, `AF`, and `F_MISSING`; it then applies `q2_af_max` (default `0.01`), `q2_missing_max` (default `0.1`), and `q2_qual_min` (default `100`). It writes the resulting `all.filtered.vcf.gz` and tabix index.
+Before aggregation, the workflow retains biallelic variants and recomputes `AC`, `AN`, `AF`, and `F_MISSING`; it then applies `q2_af_max` (default `0.01`), `q2_missing_max` (default `0.1`), and `q2_qual_min` (default `100`). Both AF and missingness thresholds must be within `[0, 1]`. It writes the resulting `all.filtered.vcf.gz` and tabix index. Filtering temporarily normalizes and indexes every shard before concatenation, so local-disk sizing must accommodate those staged copies plus the filtered output.
 
 ### q² meaning and outputs
 

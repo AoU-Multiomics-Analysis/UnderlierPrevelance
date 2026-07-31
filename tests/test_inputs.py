@@ -65,6 +65,22 @@ def test_converter_rejects_nonnumeric_counts(tmp_path):
         run_converter(bad, tmp_path / "out.tsv")
 
 
+def test_converter_does_not_replace_output_when_validation_fails(tmp_path):
+    bad = tmp_path / "bad-count.gct"
+    bad.write_text(
+        (FIXTURES / "counts.gct").read_text().replace(
+            "\t10\t12\t14\t16", "\tnot-a-count\t12\t14\t16", 1
+        )
+    )
+    output = tmp_path / "counts.tsv"
+    output.write_text("existing output\n")
+
+    with pytest.raises(subprocess.CalledProcessError):
+        run_converter(bad, output)
+
+    assert output.read_text() == "existing output\n"
+
+
 def test_rna_cli_accepts_documented_hyphenated_flags_without_dependencies():
     parser_program = (
         "source('scripts/run_rna_underlier.R'); "

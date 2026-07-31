@@ -190,26 +190,37 @@ def write_q2_table(
     alleles_by_gene: dict[str, set[tuple[str, str, str, str]]],
     observed_af: dict[tuple[str, str, str, str], float],
 ) -> None:
+    rows: list[dict[str, str | int]] = []
+    for gene in sorted(alleles_by_gene):
+        clinvar_alleles = alleles_by_gene[gene]
+        observed = [allele for allele in clinvar_alleles if observed_af.get(allele, 0.0) > 0.0]
+        q = math.fsum(observed_af[allele] for allele in observed)
+        if q > 1:
+            raise ValueError(
+                f"cumulative q exceeds 1 for gene {gene}: {format_float(q)}"
+            )
+        incidence = q * q
+        # User-approved semantics: includes anyone with at least one P/LP allele,
+        # including affected homozygotes; it is not heterozygote-only frequency.
+        carrier_frequency = 1 - (1 - q) * (1 - q)
+        rows.append(
+            {
+                "gene": gene,
+                "n_plp_alleles_clinvar": len(clinvar_alleles),
+                "n_plp_alleles_observed": len(observed),
+                "q": format_float(q),
+                "incidence": format_float(incidence),
+                "carrier_freq": format_float(carrier_frequency),
+            }
+        )
+    if not rows:
+        raise ValueError("q2 aggregation produced no gene rows")
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=OUTPUT_COLUMNS, delimiter="\t", lineterminator="\n")
         writer.writeheader()
-        for gene in sorted(alleles_by_gene):
-            clinvar_alleles = alleles_by_gene[gene]
-            observed = [allele for allele in clinvar_alleles if observed_af.get(allele, 0.0) > 0.0]
-            q = sum(observed_af[allele] for allele in observed)
-            incidence = q * q
-            carrier_frequency = 1 - (1 - q) * (1 - q)
-            writer.writerow(
-                {
-                    "gene": gene,
-                    "n_plp_alleles_clinvar": len(clinvar_alleles),
-                    "n_plp_alleles_observed": len(observed),
-                    "q": format_float(q),
-                    "incidence": format_float(incidence),
-                    "carrier_freq": format_float(carrier_frequency),
-                }
-            )
+        writer.writerows(rows)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -238,6 +249,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.genes is not None and not args.genes.is_file():
             raise ValueError(f"gene whitelist does not exist: {args.genes}")
         alleles_by_gene = parse_clinvar_alleles(args.clinvar, load_gene_whitelist(args.genes))
+        if not alleles_by_gene:
+            raise ValueError(
+                "ClinVar contains no eligible P/LP small variants assigned to genes"
+            )
         write_q2_table(args.out, alleles_by_gene, observed_allele_af(vcf_paths))
     except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)

@@ -39,9 +39,21 @@ for required in input_dir output_dir af_max missing_max qual_min threads; do
   fi
 done
 
-if ! command -v bcftools >/dev/null 2>&1; then
-  printf 'error: bcftools is required but was not found on PATH\n' >&2
-  exit 127
+decimal='^([0-9]+([.][0-9]*)?|[.][0-9]+)$'
+for value_name in af_max missing_max; do
+  if [[ ! ${!value_name} =~ $decimal ]] || \
+      ! awk -v value="${!value_name}" 'BEGIN { exit !(value >= 0 && value <= 1) }'; then
+    printf 'error: --%s must be between 0 and 1 inclusive\n' "${value_name//_/-}" >&2
+    exit 2
+  fi
+done
+if [[ ! $qual_min =~ $decimal ]]; then
+  printf 'error: --qual-min must be a non-negative decimal\n' >&2
+  exit 2
+fi
+if [[ ! $threads =~ ^[1-9][0-9]*$ ]]; then
+  printf 'error: --threads must be a positive integer\n' >&2
+  exit 2
 fi
 
 if [[ ! -d $input_dir ]]; then
@@ -49,16 +61,9 @@ if [[ ! -d $input_dir ]]; then
   exit 2
 fi
 
-decimal='^([0-9]+([.][0-9]*)?|[.][0-9]+)$'
-for value_name in af_max missing_max qual_min; do
-  if [[ ! ${!value_name} =~ $decimal ]]; then
-    printf 'error: --%s must be a non-negative decimal\n' "${value_name//_/-}" >&2
-    exit 2
-  fi
-done
-if [[ ! $threads =~ ^[1-9][0-9]*$ ]]; then
-  printf 'error: --threads must be a positive integer\n' >&2
-  exit 2
+if ! command -v bcftools >/dev/null 2>&1; then
+  printf 'error: bcftools is required but was not found on PATH\n' >&2
+  exit 127
 fi
 
 mkdir -p "$output_dir"
@@ -80,11 +85,22 @@ if [[ ${#inputs[@]} -eq 0 ]]; then
 fi
 
 genotype_vcfs=()
+reference_samples=''
+reference_vcf=''
 for index in "${!inputs[@]}"; do
   staged="$staging_dir/$(printf '%04d' "$index").vcf.gz"
   bcftools view --threads "$threads" -Oz -o "$staged" "${inputs[$index]}"
   bcftools index --threads "$threads" -f -t "$staged"
-  if [[ -n $(bcftools query -l "$staged") ]]; then
+  sample_ids=$(bcftools query -l "$staged")
+  if [[ -n $sample_ids ]]; then
+    if [[ -z $reference_vcf ]]; then
+      reference_samples=$sample_ids
+      reference_vcf=${inputs[$index]}
+    elif [[ $sample_ids != "$reference_samples" ]]; then
+      printf 'error: VCF shards must contain identical sample IDs in identical order; %s differs from %s\n' \
+        "${inputs[$index]}" "$reference_vcf" >&2
+      exit 2
+    fi
     genotype_vcfs+=("$staged")
   fi
 done
