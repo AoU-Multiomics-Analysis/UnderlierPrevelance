@@ -7,6 +7,8 @@ on:
     paths:
       - ".github/workflows/docker-image.yml"
       - "envs/Dockerfile"
+      - "envs/bioconda-environment.yml"
+      - "envs/requirements-q2.txt"
       - "scripts/**"
 
 

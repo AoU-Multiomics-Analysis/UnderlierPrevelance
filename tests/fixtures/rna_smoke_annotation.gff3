@@ -1,0 +1,17 @@
+##gff-version 3
+chr1	TOPMed	gene	101	200	.	+	.	ID=RNA_GENE01;gene_id=RNA_GENE01;gene_name=RNA_GENE01;gene_type=protein_coding
+chr1	TOPMed	gene	301	400	.	+	.	ID=RNA_GENE02;gene_id=RNA_GENE02;gene_name=RNA_GENE02;gene_type=protein_coding
+chr1	TOPMed	gene	501	600	.	+	.	ID=RNA_GENE03;gene_id=RNA_GENE03;gene_name=RNA_GENE03;gene_type=protein_coding
+chr1	TOPMed	gene	701	800	.	+	.	ID=RNA_GENE04;gene_id=RNA_GENE04;gene_name=RNA_GENE04;gene_type=protein_coding
+chr1	TOPMed	gene	901	1000	.	+	.	ID=RNA_GENE05;gene_id=RNA_GENE05;gene_name=RNA_GENE05;gene_type=protein_coding
+chr1	TOPMed	gene	1101	1200	.	+	.	ID=RNA_GENE06;gene_id=RNA_GENE06;gene_name=RNA_GENE06;gene_type=protein_coding
+chr1	TOPMed	gene	1301	1400	.	+	.	ID=RNA_GENE07;gene_id=RNA_GENE07;gene_name=RNA_GENE07;gene_type=protein_coding
+chr1	TOPMed	gene	1501	1600	.	+	.	ID=RNA_GENE08;gene_id=RNA_GENE08;gene_name=RNA_GENE08;gene_type=protein_coding
+chr1	TOPMed	gene	1701	1800	.	+	.	ID=RNA_GENE09;gene_id=RNA_GENE09;gene_name=RNA_GENE09;gene_type=protein_coding
+chr1	TOPMed	gene	1901	2000	.	+	.	ID=RNA_GENE10;gene_id=RNA_GENE10;gene_name=RNA_GENE10;gene_type=protein_coding
+chr1	TOPMed	gene	2101	2200	.	+	.	ID=RNA_GENE11;gene_id=RNA_GENE11;gene_name=RNA_GENE11;gene_type=protein_coding
+chr1	TOPMed	gene	2301	2400	.	+	.	ID=RNA_GENE12;gene_id=RNA_GENE12;gene_name=RNA_GENE12;gene_type=protein_coding
+chr1	TOPMed	gene	2501	2600	.	+	.	ID=RNA_GENE13;gene_id=RNA_GENE13;gene_name=RNA_GENE13;gene_type=protein_coding
+chr1	TOPMed	gene	2701	2800	.	+	.	ID=RNA_GENE14;gene_id=RNA_GENE14;gene_name=RNA_GENE14;gene_type=protein_coding
+chr1	TOPMed	gene	2901	3000	.	+	.	ID=RNA_GENE15;gene_id=RNA_GENE15;gene_name=RNA_GENE15;gene_type=protein_coding
+chr1	TOPMed	gene	3101	3200	.	+	.	ID=RNA_GENE16;gene_id=RNA_GENE16;gene_name=RNA_GENE16;gene_type=protein_coding

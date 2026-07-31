@@ -1,0 +1,5 @@
+# The current q2 scripts use the Python standard library. These pinned
+# libraries are installed for the documented q2 runtime contract and future
+# table-oriented extensions.
+numpy==2.1.3
+pandas==2.2.3

@@ -11,6 +11,7 @@ r_files <- unlist(
   lapply(paths, list.files, pattern = "[.]R$", full.names = TRUE, recursive = TRUE),
   use.names = FALSE
 )
+r_files <- sort(unique(r_files))
 
 if (length(r_files) == 0) {
   message("No R files found to lint.")
@@ -18,6 +19,7 @@ if (length(r_files) == 0) {
 }
 
 linters <- list(
+  assignment_linter = lintr::assignment_linter(),
   T_and_F_symbol_linter = lintr::T_and_F_symbol_linter(),
   equals_na_linter = lintr::equals_na_linter(),
   missing_argument_linter = lintr::missing_argument_linter(),

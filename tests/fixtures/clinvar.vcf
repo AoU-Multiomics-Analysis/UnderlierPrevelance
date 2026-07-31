@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##INFO=<ID=CLNSIG,Number=.,Type=String,Description="Clinical significance">
+##INFO=<ID=GENE,Number=1,Type=String,Description="Gene symbol">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	101	.	A	G	.	PASS	CLNSIG=Pathogenic;GENE=GENE1
+chr1	202	.	C	T	.	PASS	CLNSIG=Pathogenic;GENE=GENE1
+chr1	303	.	G	A	.	PASS	CLNSIG=Pathogenic;GENE=GENE2
