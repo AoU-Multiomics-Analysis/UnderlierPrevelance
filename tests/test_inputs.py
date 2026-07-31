@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -49,6 +50,17 @@ def test_converter_rejects_malformed_header(tmp_path):
 def test_converter_rejects_wrong_dimensions(tmp_path):
     bad = tmp_path / "bad-dimensions.gct"
     bad.write_text((FIXTURES / "counts.gct").read_text().replace("6\t4", "5\t4", 1))
+    with pytest.raises(subprocess.CalledProcessError):
+        run_converter(bad, tmp_path / "out.tsv")
+
+
+def test_converter_rejects_nonnumeric_counts(tmp_path):
+    bad = tmp_path / "bad-count.gct"
+    bad.write_text(
+        (FIXTURES / "counts.gct").read_text().replace(
+            "\t10\t12\t14\t16", "\tnot-a-count\t12\t14\t16", 1
+        )
+    )
     with pytest.raises(subprocess.CalledProcessError):
         run_converter(bad, tmp_path / "out.tsv")
 
@@ -123,6 +135,132 @@ def test_rna_covariate_design_rejects_invalid_rank_without_dependencies(
     )
     assert result.returncode != 0
     assert expected_error in result.stderr
+
+
+def test_rna_strict_output_tag_uses_the_requested_cutoff_without_dependencies():
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        [
+            "Rscript",
+            "-e",
+            "source('scripts/run_rna_underlier.R'); cat(strict_output_tag(-2))",
+        ],
+        check=True,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.stdout == "z_-2"
+
+
+def test_rna_gd_metadata_records_exact_covariate_design_without_dependencies():
+    program = (
+        "source('scripts/run_rna_underlier.R'); "
+        "metadata <- selected_pc_metadata(1L, 1L, 4L, 0.25, 'override', 2L, "
+        "list(columns = 'PC1', design_rank = 2L), "
+        "c('Genotype_PC1', 'Genotype_PC2'), "
+        "list(columns = c('PC1', 'Genotype_PC1', 'Genotype_PC2'), design_rank = 4L, "
+        "residual_degrees_freedom = 6L), 10L, 16L); "
+        "cat(metadata$phenotype_pc_columns, metadata$genotype_pc_columns, "
+        "metadata$residualization_covariate_columns, metadata$residualization_design_rank, "
+        "metadata$residual_degrees_freedom, sep = '\\t')"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        ["Rscript", "-e", program],
+        check=True,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.stdout == "PC1\tGenotype_PC1,Genotype_PC2\tPC1,Genotype_PC1,Genotype_PC2\t4\t6"
+
+
+def test_rna_counts_rejects_a_trailing_empty_count_without_dependencies(tmp_path):
+    counts = tmp_path / "trailing-empty.tsv"
+    counts.write_text("gene_id\tR1\tR2\nRNA_GENE01\t10\t\n")
+    program = (
+        "source('scripts/run_rna_underlier.R'); "
+        f"read_counts('{counts}')"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        ["Rscript", "-e", program],
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "inconsistent tab-delimited field counts" in result.stderr
+
+
+def test_rna_smoke_fixture_has_capacity_for_two_genotype_and_three_phenotype_pcs():
+    samples, rows = read_gct_contract(FIXTURES / "rna_smoke_counts.gct")
+    validate_covariates(FIXTURES / "rna_smoke_genotype_covariates.tsv", samples)
+    records = [
+        line
+        for line in (FIXTURES / "rna_smoke_annotation.gff3").read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
+    assert len(samples) == 10
+    assert len(rows) == 16
+    assert len(records) == 16
+    assert len(samples) - (1 + 2 + 3) > 0
+
+
+def rna_runtime_available():
+    if shutil.which("Rscript") is None:
+        return False
+    package_probe = (
+        "required <- c('edgeR', 'limma', 'corral', 'PCAtools', 'scran', 'WGCNA', 'rtracklayer'); "
+        "quit(status = as.integer(!all(vapply(required, requireNamespace, logical(1), quietly = TRUE))))"
+    )
+    return subprocess.run(["Rscript", "-e", package_probe], check=False).returncode == 0
+
+
+@pytest.mark.skipif(
+    not rna_runtime_available(),
+    reason="RNA smoke test requires edgeR, limma, corral, PCAtools, scran, WGCNA, and rtracklayer",
+)
+def test_rna_smoke_fixture_emits_core_outputs(tmp_path):
+    counts_tsv = tmp_path / "counts.tsv"
+    run_converter(FIXTURES / "rna_smoke_counts.gct", counts_tsv)
+    out_dir = tmp_path / "rna-out"
+    subprocess.run(
+        [
+            "Rscript",
+            str(ROOT / "scripts" / "run_rna_underlier.R"),
+            "--counts",
+            str(counts_tsv),
+            "--genotype-covariates",
+            str(FIXTURES / "rna_smoke_genotype_covariates.tsv"),
+            "--gencode",
+            str(FIXTURES / "rna_smoke_annotation.gff3"),
+            "--out-dir",
+            str(out_dir),
+            "--n-geno-pcs",
+            "2",
+            "--phenotype-pc-noise",
+            "0.25",
+        ],
+        check=True,
+    )
+    expected_outputs = [
+        "selected_phenotype_pcs.tsv",
+        "expr_z_join.tsv.gz",
+        "underliers_haplo.tsv.gz",
+        "underliers_z_-3.tsv.gz",
+        "rna_outlier_prevalence_per_gene_haplo.tsv",
+        "rna_outlier_prevalence_per_gene_z_-3.tsv",
+    ]
+    assert all((out_dir / output).is_file() for output in expected_outputs)
+    metadata = dict(
+        zip(
+            (out_dir / "selected_phenotype_pcs.tsv").read_text().splitlines()[0].split("\t"),
+            (out_dir / "selected_phenotype_pcs.tsv").read_text().splitlines()[1].split("\t"),
+        )
+    )
+    assert int(metadata["residual_degrees_freedom"]) > 0
 
 
 def parse_vcf_manifest(path):

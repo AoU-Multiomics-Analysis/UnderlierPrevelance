@@ -240,6 +240,12 @@ lower_half_noise <- function(variance_spectrum) {
   noise
 }
 
+strict_output_tag <- function(z_cutoff) {
+  formatted_cutoff <- format(z_cutoff, trim = TRUE, scientific = FALSE, digits = 15)
+  formatted_cutoff <- sub("[.]0+$", "", formatted_cutoff)
+  paste0("z_", formatted_cutoff)
+}
+
 validate_covariate_design <- function(covariates, sample_ids, context) {
   if (!identical(rownames(covariates), sample_ids)) {
     fail(paste0(context, " covariates are not ordered to match the retained samples"))
@@ -276,6 +282,38 @@ validate_covariate_design <- function(covariates, sample_ids, context) {
 
 remove_covariates <- function(expression, covariates) {
   limma::removeBatchEffect(expression, covariates = covariates)
+}
+
+selected_pc_metadata <- function(
+  selected_pcs,
+  selected_raw,
+  available_rank,
+  noise,
+  noise_source,
+  n_genotype_pcs,
+  phenotype_design,
+  genotype_pc_columns,
+  residual_design,
+  n_samples_after_qc,
+  n_genes_after_qc
+) {
+  data.frame(
+    selected_phenotype_pcs = selected_pcs,
+    gavish_donoho_raw = as.integer(selected_raw),
+    available_rank = available_rank,
+    noise_variance = noise,
+    noise_source = noise_source,
+    n_genotype_pcs = n_genotype_pcs,
+    phenotype_pc_columns = paste(phenotype_design$columns, collapse = ","),
+    genotype_pc_columns = paste(genotype_pc_columns, collapse = ","),
+    residualization_covariate_columns = paste(residual_design$columns, collapse = ","),
+    phenotype_design_rank = phenotype_design$design_rank,
+    residualization_design_rank = residual_design$design_rank,
+    residual_degrees_freedom = residual_design$residual_degrees_freedom,
+    n_samples_after_qc = n_samples_after_qc,
+    n_genes_after_qc = n_genes_after_qc,
+    stringsAsFactors = FALSE
+  )
 }
 
 long_expression <- function(expression, value_name) {
@@ -394,26 +432,25 @@ run_pipeline <- function(options) {
   output_path <- function(name) file.path(options$out_dir, name)
   write_tsv(expr_z_join, output_path("expr_z_join.tsv.gz"))
 
-  metadata <- data.frame(
-    selected_phenotype_pcs = selected_pcs,
-    gavish_donoho_raw = as.integer(selected_raw),
-    available_rank = available_rank,
-    noise_variance = noise,
-    noise_source = noise_source,
-    n_genotype_pcs = options$n_geno_pcs,
-    phenotype_pc_columns = paste(phenotype_design$columns, collapse = ","),
-    genotype_pc_columns = paste(colnames(genotype_covariates), collapse = ","),
-    residualization_covariate_columns = paste(residual_design$columns, collapse = ","),
-    phenotype_design_rank = phenotype_design$design_rank,
-    residualization_design_rank = residual_design$design_rank,
-    residual_degrees_freedom = residual_design$residual_degrees_freedom,
-    n_samples_after_qc = length(kept_samples),
-    n_genes_after_qc = nrow(qc_normalized),
-    stringsAsFactors = FALSE
+  metadata <- selected_pc_metadata(
+    selected_pcs,
+    selected_raw,
+    available_rank,
+    noise,
+    noise_source,
+    options$n_geno_pcs,
+    phenotype_design,
+    colnames(genotype_covariates),
+    residual_design,
+    length(kept_samples),
+    nrow(qc_normalized)
   )
   write_tsv(metadata, output_path("selected_phenotype_pcs.tsv"))
 
-  definitions <- list(list(tag = "haplo", z_cutoff = NULL), list(tag = "z_-3", z_cutoff = options$z_cutoff))
+  definitions <- list(
+    list(tag = "haplo", z_cutoff = NULL),
+    list(tag = strict_output_tag(options$z_cutoff), z_cutoff = options$z_cutoff)
+  )
   for (definition in definitions) {
     underliers <- call_underliers(expr_z_join, definition$z_cutoff, options$logcpm_drop)
     write_tsv(underliers, output_path(paste0("underliers_", definition$tag, ".tsv.gz")))
