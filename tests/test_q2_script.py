@@ -18,14 +18,21 @@ def read_paired_vcf_inputs():
     genotype_indexes = [FIXTURES / entry["index"] for entry in genotype]
     clinvar_vcf = FIXTURES / clinvar["vcf"]
     clinvar_index = FIXTURES / clinvar["index"]
-    assert len(genotype_vcfs) == len(genotype_indexes)
-    assert all(path.exists() for path in genotype_vcfs + genotype_indexes)
-    assert clinvar_vcf.exists() and clinvar_index.exists()
+    if len(genotype_vcfs) != len(genotype_indexes):
+        raise ValueError("genotype VCF and index arrays must have equal lengths")
+    if not all(path.exists() for path in [*genotype_vcfs, *genotype_indexes, clinvar_vcf, clinvar_index]):
+        raise ValueError("all VCF and index paths must exist")
+    if any(vcf.name + ".tbi" != index.name for vcf, index in zip(genotype_vcfs, genotype_indexes)):
+        raise ValueError("genotype VCF/index paths must be paired")
+    if clinvar_vcf.name + ".tbi" != clinvar_index.name:
+        raise ValueError("ClinVar VCF/index paths must be paired")
     return genotype_vcfs, genotype_indexes, clinvar_vcf, clinvar_index
 
 
 def run_q2(output):
     genotype_vcfs, genotype_indexes, clinvar_vcf, clinvar_index = read_paired_vcf_inputs()
+    assert len(genotype_vcfs) == len(genotype_indexes) == 2
+    cohort_glob = str(FIXTURES / "cohort*.vcf")
     subprocess.run(
         [
             "python3",
@@ -33,7 +40,7 @@ def run_q2(output):
             "--clinvar",
             str(clinvar_vcf),
             "--vcf-glob",
-            str(genotype_vcfs[0]),
+            cohort_glob,
             "--out",
             str(output),
         ],
@@ -90,6 +97,12 @@ def test_q2_output_contains_required_columns(tmp_path):
         "incidence",
         "carrier_freq",
     ]
+
+
+def test_q2_helper_covers_all_genotype_vcf_index_pairs():
+    genotype_vcfs, genotype_indexes, _, _ = read_paired_vcf_inputs()
+    assert len(genotype_vcfs) == len(genotype_indexes) == 2
+    assert {path.name for path in genotype_vcfs} == {"cohort.vcf", "cohort_2.vcf"}
 
 
 def test_filtering_removes_nonbiallelic_and_high_af_sites(tmp_path):

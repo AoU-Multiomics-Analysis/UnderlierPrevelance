@@ -1,3 +1,4 @@
 role	vcf	index
 genotype	cohort.vcf	cohort.vcf.tbi
+genotype	cohort_2.vcf	cohort_2.vcf.tbi
 clinvar	clinvar.vcf	clinvar.vcf.tbi

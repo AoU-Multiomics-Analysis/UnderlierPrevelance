@@ -7,6 +7,34 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 
 
+def parse_vcf_manifest(path):
+    lines = Path(path).read_text().splitlines()
+    header = lines[0].split("\t")
+    entries = [dict(zip(header, line.split("\t"))) for line in lines[1:]]
+    genotype = [entry for entry in entries if entry["role"] == "genotype"]
+    clinvar = next(entry for entry in entries if entry["role"] == "clinvar")
+    return (
+        [FIXTURES / entry["vcf"] for entry in genotype],
+        [FIXTURES / entry["index"] for entry in genotype],
+        FIXTURES / clinvar["vcf"],
+        FIXTURES / clinvar["index"],
+    )
+
+
+def validate_vcf_index_pairs(genotype_vcfs, genotype_indexes, clinvar_vcf, clinvar_index):
+    if len(genotype_vcfs) != len(genotype_indexes):
+        raise ValueError("genotype VCF and index arrays must have equal lengths")
+    if not genotype_vcfs:
+        raise ValueError("at least one genotype VCF/index pair is required")
+    paths = [*genotype_vcfs, *genotype_indexes, clinvar_vcf, clinvar_index]
+    if not all(path.exists() for path in paths):
+        raise ValueError("all VCF and index paths must exist")
+    if any(vcf.name + ".tbi" != index.name for vcf, index in zip(genotype_vcfs, genotype_indexes)):
+        raise ValueError("genotype VCF/index paths must be paired")
+    if clinvar_vcf.name + ".tbi" != clinvar_index.name:
+        raise ValueError("ClinVar VCF/index paths must be paired")
+
+
 def read_gct_contract(path):
     lines = Path(path).read_text().splitlines()
     if len(lines) < 3 or lines[0] != "#1.2":
@@ -161,20 +189,24 @@ def test_gct_and_covariate_contracts_accept_fixture():
 
 
 def test_q2_inputs_have_explicit_vcf_index_pairs():
-    manifest = (FIXTURES / "vcf_inputs.tsv").read_text().splitlines()
-    entries = [dict(zip(manifest[0].split("\t"), line.split("\t"))) for line in manifest[1:]]
-    genotype = [entry for entry in entries if entry["role"] == "genotype"]
-    clinvar = next(entry for entry in entries if entry["role"] == "clinvar")
-    genotype_vcfs = [FIXTURES / entry["vcf"] for entry in genotype]
-    genotype_indexes = [FIXTURES / entry["index"] for entry in genotype]
-    clinvar_vcf = FIXTURES / clinvar["vcf"]
-    clinvar_index = FIXTURES / clinvar["index"]
+    genotype_vcfs, genotype_indexes, clinvar_vcf, clinvar_index = parse_vcf_manifest(
+        FIXTURES / "vcf_inputs.tsv"
+    )
+    assert len(genotype_vcfs) == 2
+    assert len(genotype_indexes) == 2
     assert len(genotype_vcfs) == len(genotype_indexes)
-    assert all(path.exists() for path in genotype_vcfs + genotype_indexes)
-    assert clinvar_vcf.exists() and clinvar_index.exists()
-    assert all(vcf.name + ".tbi" == index.name for vcf, index in zip(genotype_vcfs, genotype_indexes))
-    assert clinvar_vcf.name + ".tbi" == clinvar_index.name
+    validate_vcf_index_pairs(genotype_vcfs, genotype_indexes, clinvar_vcf, clinvar_index)
     # These placeholders validate path pairing only; WDL/bcftools must validate real tabix indexes later.
+
+
+def test_q2_inputs_reject_shortened_genotype_index_list():
+    genotype_vcfs, genotype_indexes, clinvar_vcf, clinvar_index = parse_vcf_manifest(
+        FIXTURES / "vcf_inputs.tsv"
+    )
+    with pytest.raises(ValueError, match="equal lengths"):
+        validate_vcf_index_pairs(
+            genotype_vcfs, genotype_indexes[:-1], clinvar_vcf, clinvar_index
+        )
 
 
 def test_annotation_contains_two_protein_coding_genes():

@@ -18,6 +18,8 @@ Implemented only the Task 1 synthetic fixtures and validation tests in the repos
 - `tests/fixtures/annotation.gff3`
 - `tests/fixtures/clinvar.vcf`
 - `tests/fixtures/cohort.vcf`
+- `tests/fixtures/cohort_2.vcf`
+- `tests/fixtures/cohort_2.vcf.tbi` (placeholder path file)
 - `tests/fixtures/vcf_inputs.tsv`
 - `tests/fixtures/cohort.vcf.tbi` (placeholder path file)
 - `tests/fixtures/clinvar.vcf.tbi` (placeholder path file)
@@ -36,7 +38,7 @@ Implemented only the Task 1 synthetic fixtures and validation tests in the repos
 
 ## Commit
 
-Created commits `fee27da` (`test: add synthetic pipeline fixtures`) and `a234a37` (`test: strengthen pipeline fixture contracts`).
+Created commits `fee27da` (`test: add synthetic pipeline fixtures`), `a234a37` (`test: strengthen pipeline fixture contracts`), and `804567c` (`test: close Task 1 fixture contract gaps`).
 
 ## Concerns
 
@@ -57,3 +59,10 @@ The q² tests are intentionally command-line integration tests for `scripts/comp
 - Added `vcf_inputs.tsv` plus placeholder `.tbi` path files. Tests verify equal genotype VCF/index array lengths, ClinVar pairing, and path existence only; binary tabix validity remains the later WDL/bcftools task’s responsibility.
 - q² helpers now load and validate the paired VCF/index manifest before invoking the later-task command interfaces, while retaining robust repository-root path resolution.
 - Fix-round 2 verification: `python3 -m py_compile tests/test_inputs.py tests/test_q2_script.py`, `git diff --check`, and direct helper/fixture assertions pass. Pytest remains unavailable.
+
+## Fix-round 3 summary
+
+- Added `cohort_2.vcf` and its placeholder `.tbi` path, and expanded `vcf_inputs.tsv` to two genotype VCF/index pairs plus one ClinVar pair.
+- The manifest parser now returns separate genotype VCFs, genotype indexes, ClinVar VCF, and ClinVar index values. Tests independently check list lengths and reject a shortened genotype index list.
+- `run_q2()` validates and consumes the complete paired lists, then passes `cohort*.vcf` so both cohort VCFs are included. The `.tbi` files remain path placeholders only; binary tabix validation belongs to the later WDL/bcftools task.
+- Fix-round 3 verification: `python3 -m py_compile tests/test_inputs.py tests/test_q2_script.py`, `git diff --check`, and direct helper/fixture assertions pass. Pytest remains unavailable.
