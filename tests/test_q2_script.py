@@ -152,6 +152,50 @@ def test_q2_uses_maximum_duplicate_allele_af_and_gene_level_q(tmp_path):
     }
 
 
+def test_q2_excludes_zero_af_matching_alleles_from_observed_count(tmp_path):
+    clinvar = tmp_path / "clinvar.vcf"
+    clinvar.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##INFO=<ID=CLNSIG,Number=.,Type=String,Description=\"Clinical significance\">\n"
+        "##INFO=<ID=GENE,Number=1,Type=String,Description=\"Gene symbol\">\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t10\t.\tA\tG\t.\tPASS\tCLNSIG=Pathogenic;GENE=GENE1\n"
+    )
+    cohort = tmp_path / "cohort.vcf"
+    cohort.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele frequency\">\n"
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+        "chr1\t10\t.\tA\tG\t200\tPASS\tAF=0\n"
+    )
+
+    output = tmp_path / "q2.tsv"
+    subprocess.run(
+        [
+            "python3",
+            str(ROOT / "scripts" / "compute_q2_incidence.py"),
+            "--clinvar",
+            str(clinvar),
+            "--vcf-glob",
+            str(cohort),
+            "--out",
+            str(output),
+        ],
+        check=True,
+        cwd=ROOT,
+    )
+
+    row = dict(zip(output.read_text().splitlines()[0].split("\t"), output.read_text().splitlines()[1].split("\t")))
+    assert row == {
+        "gene": "GENE1",
+        "n_plp_alleles_clinvar": "1",
+        "n_plp_alleles_observed": "0",
+        "q": "0",
+        "incidence": "0",
+        "carrier_freq": "0",
+    }
+
+
 def test_q2_rejects_a_vcf_glob_that_matches_no_files(tmp_path):
     result = subprocess.run(
         [

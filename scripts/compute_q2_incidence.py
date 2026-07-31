@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Aggregate ClinVar P/LP allele frequencies into per-gene q-squared estimates."""
+"""Aggregate ClinVar P/LP allele frequencies into per-gene q-squared estimates.
+
+``carrier_freq = 1 - (1 - q)^2`` is the frequency of individuals with at
+least one pathogenic allele, including affected homozygotes.
+"""
 
 from __future__ import annotations
 
@@ -192,7 +196,7 @@ def write_q2_table(
         writer.writeheader()
         for gene in sorted(alleles_by_gene):
             clinvar_alleles = alleles_by_gene[gene]
-            observed = [allele for allele in clinvar_alleles if allele in observed_af]
+            observed = [allele for allele in clinvar_alleles if observed_af.get(allele, 0.0) > 0.0]
             q = sum(observed_af[allele] for allele in observed)
             incidence = q * q
             carrier_frequency = 1 - (1 - q) * (1 - q)
@@ -209,7 +213,13 @@ def write_q2_table(
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=(
+            "carrier_freq = 1 - (1 - q)^2: frequency of individuals with at least one "
+            "pathogenic allele, including affected homozygotes."
+        ),
+    )
     parser.add_argument("--clinvar", required=True, type=Path, help="ClinVar VCF (plain or gzip-compressed)")
     parser.add_argument("--vcf-glob", required=True, help="Glob identifying deterministic staged cohort VCFs")
     parser.add_argument("--out", required=True, type=Path, help="Destination q-squared TSV")
