@@ -50,6 +50,10 @@ def parse_count(value: str, row_number: int, sample_id: str) -> float:
         raise GCTValidationError(
             f"GCT row {row_number}, sample {sample_id!r} must have a finite count"
         )
+    if count < 0:
+        raise GCTValidationError(
+            f"GCT row {row_number}, sample {sample_id!r} must have a non-negative count"
+        )
     return count
 
 

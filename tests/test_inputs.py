@@ -65,6 +65,34 @@ def test_converter_rejects_nonnumeric_counts(tmp_path):
         run_converter(bad, tmp_path / "out.tsv")
 
 
+def test_converter_rejects_negative_counts_with_row_and_sample_context(tmp_path):
+    bad = tmp_path / "negative-count.gct"
+    bad.write_text(
+        (FIXTURES / "counts.gct").read_text().replace(
+            "\t10\t12\t14\t16", "\t-1\t12\t14\t16", 1
+        )
+    )
+    output = tmp_path / "out.tsv"
+
+    result = subprocess.run(
+        [
+            "python3",
+            str(ROOT / "scripts" / "convert_gct.py"),
+            "--input",
+            str(bad),
+            "--output",
+            str(output),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+
+    assert result.returncode == 2
+    assert "GCT row 4, sample 'S1' must have a non-negative count" in result.stderr
+    assert not output.exists()
+
+
 def test_converter_does_not_replace_output_when_validation_fails(tmp_path):
     bad = tmp_path / "bad-count.gct"
     bad.write_text(
