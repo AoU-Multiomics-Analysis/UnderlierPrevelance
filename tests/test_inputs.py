@@ -161,7 +161,7 @@ def test_rna_gd_metadata_records_exact_covariate_design_without_dependencies():
         "c('Genotype_PC1', 'Genotype_PC2'), "
         "list(columns = c('PC1', 'Genotype_PC1', 'Genotype_PC2'), design_rank = 4L, "
         "residual_degrees_freedom = 6L), 10L, 16L); "
-        "cat(metadata$phenotype_pc_columns, metadata$genotype_pc_columns, "
+        "cat(metadata$phenotype_pc_method, metadata$phenotype_pc_columns, metadata$genotype_pc_columns, "
         "metadata$residualization_covariate_columns, metadata$residualization_design_rank, "
         "metadata$residual_degrees_freedom, sep = '\\t')"
     )
@@ -173,7 +173,7 @@ def test_rna_gd_metadata_records_exact_covariate_design_without_dependencies():
         env=environment,
         text=True,
     )
-    assert result.stdout == "PC1\tGenotype_PC1,Genotype_PC2\tPC1,Genotype_PC1,Genotype_PC2\t4\t6"
+    assert result.stdout == "PCAtools::chooseGavishDonoho\tPC1\tGenotype_PC1,Genotype_PC2\tPC1,Genotype_PC1,Genotype_PC2\t4\t6"
 
 
 def test_rna_counts_rejects_a_trailing_empty_count_without_dependencies(tmp_path):
@@ -191,7 +191,43 @@ def test_rna_counts_rejects_a_trailing_empty_count_without_dependencies(tmp_path
         text=True,
     )
     assert result.returncode != 0
-    assert "inconsistent tab-delimited field counts" in result.stderr
+    assert "Counts TSV contains nonnumeric or non-finite values" in result.stderr
+
+
+def test_rna_counts_rejects_matching_trailing_delimiters_without_dependencies(tmp_path):
+    counts = tmp_path / "matching-trailing-empty.tsv"
+    counts.write_text("gene_id\tR1\t\nRNA_GENE01\t10\t\n")
+    program = (
+        "source('scripts/run_rna_underlier.R'); "
+        f"read_counts('{counts}')"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        ["Rscript", "-e", program],
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "Counts TSV sample IDs must be nonempty and unique" in result.stderr
+
+
+def test_rna_covariates_reject_matching_trailing_delimiters_without_dependencies(tmp_path):
+    covariates = tmp_path / "matching-trailing-empty.tsv"
+    covariates.write_text("sample_id\tGenotype_PC1\t\nR1\t0.5\t\n")
+    program = (
+        "source('scripts/run_rna_underlier.R'); "
+        f"read_genotype_covariates('{covariates}', 'R1', 1L)"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        ["Rscript", "-e", program],
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "Genotype-covariate TSV columns after sample_id" in result.stderr
 
 
 def test_rna_smoke_fixture_has_capacity_for_two_genotype_and_three_phenotype_pcs():
@@ -260,7 +296,14 @@ def test_rna_smoke_fixture_emits_core_outputs(tmp_path):
             (out_dir / "selected_phenotype_pcs.tsv").read_text().splitlines()[1].split("\t"),
         )
     )
-    assert int(metadata["residual_degrees_freedom"]) > 0
+    assert metadata["phenotype_pc_method"] == "PCAtools::chooseGavishDonoho"
+    assert metadata["noise_source"] == "override"
+    assert metadata["noise_variance"] == "0.25"
+    assert metadata["selected_phenotype_pcs"] == "3"
+    assert metadata["gavish_donoho_raw"] == "3"
+    assert metadata["phenotype_pc_columns"] == "PC1,PC2,PC3"
+    assert metadata["residualization_design_rank"] == "6"
+    assert metadata["residual_degrees_freedom"] == "4"
 
 
 def parse_vcf_manifest(path):

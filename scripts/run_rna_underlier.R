@@ -93,7 +93,18 @@ read_tsv_rows <- function(path, label) {
   if (length(lines) < 2L) {
     fail(paste0(label, " TSV must contain a header and at least one data row"))
   }
-  fields <- strsplit(lines, "\t", fixed = TRUE)
+  split_tsv_line <- function(line) {
+    without_terminal_tabs <- sub("\t+$", "", line)
+    terminal_tab_count <- nchar(line) - nchar(without_terminal_tabs)
+    if (!nzchar(without_terminal_tabs)) {
+      return(rep("", terminal_tab_count + 1L))
+    }
+    c(
+      strsplit(without_terminal_tabs, "\t", fixed = TRUE)[[1L]],
+      rep("", terminal_tab_count)
+    )
+  }
+  fields <- lapply(lines, split_tsv_line)
   fields[[1L]][1L] <- sub("^\ufeff", "", fields[[1L]][1L])
   width <- length(fields[[1L]])
   if (width < 2L || any(vapply(fields, length, integer(1)) != width)) {
@@ -298,6 +309,7 @@ selected_pc_metadata <- function(
   n_genes_after_qc
 ) {
   data.frame(
+    phenotype_pc_method = "PCAtools::chooseGavishDonoho",
     selected_phenotype_pcs = selected_pcs,
     gavish_donoho_raw = as.integer(selected_raw),
     available_rank = available_rank,
