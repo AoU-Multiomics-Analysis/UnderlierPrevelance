@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 
@@ -36,6 +37,92 @@ def test_converter_rejects_duplicate_gene_ids(tmp_path):
     )
     with pytest.raises(subprocess.CalledProcessError):
         run_converter(bad, tmp_path / "out.tsv")
+
+
+def test_converter_rejects_malformed_header(tmp_path):
+    bad = tmp_path / "bad-header.gct"
+    bad.write_text((FIXTURES / "counts.gct").read_text().replace("#1.2", "#1.1", 1))
+    with pytest.raises(subprocess.CalledProcessError):
+        run_converter(bad, tmp_path / "out.tsv")
+
+
+def test_converter_rejects_wrong_dimensions(tmp_path):
+    bad = tmp_path / "bad-dimensions.gct"
+    bad.write_text((FIXTURES / "counts.gct").read_text().replace("6\t4", "5\t4", 1))
+    with pytest.raises(subprocess.CalledProcessError):
+        run_converter(bad, tmp_path / "out.tsv")
+
+
+def test_rna_cli_accepts_documented_hyphenated_flags_without_dependencies():
+    parser_program = (
+        "source('scripts/run_rna_underlier.R'); "
+        "options <- parse_cli(commandArgs(trailingOnly = TRUE)); "
+        "cat(options$counts, options$genotype_covariates, options$gencode, "
+        "options$out_dir, options$n_geno_pcs, options$phenotype_pc_noise, "
+        "options$connectivity_z, options$logcpm_drop, options$z_cutoff, "
+        "options$threads, sep = '\\t')"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        [
+            "Rscript",
+            "-e",
+            parser_program,
+            "--counts",
+            "counts.tsv",
+            "--genotype-covariates",
+            "covariates.tsv",
+            "--gencode",
+            "annotation.gff3",
+            "--out-dir",
+            "out",
+            "--n-geno-pcs",
+            "2",
+            "--phenotype-pc-noise",
+            "0.25",
+            "--connectivity-z",
+            "-3",
+            "--logcpm-drop",
+            "1",
+            "--z-cutoff",
+            "-3",
+            "--threads",
+            "1",
+        ],
+        check=True,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.stdout == "counts.tsv\tcovariates.tsv\tannotation.gff3\tout\t2\t0.25\t-3\t1\t-3\t1"
+
+
+@pytest.mark.parametrize(
+    ("matrix_values", "n_samples", "expected_error"),
+    [
+        ("1, 2, 3, 4, 1, 2, 3, 4", 4, "is rank-deficient"),
+        ("1, 2, 3, 2, 3, 5", 3, "leaves no residual degrees of freedom"),
+    ],
+)
+def test_rna_covariate_design_rejects_invalid_rank_without_dependencies(
+    matrix_values, n_samples, expected_error
+):
+    program = (
+        "source('scripts/run_rna_underlier.R'); "
+        f"covariates <- matrix(c({matrix_values}), nrow = {n_samples}, ncol = 2); "
+        "rownames(covariates) <- paste0('S', seq_len(nrow(covariates))); "
+        "colnames(covariates) <- c('PC1', 'Genotype_PC1'); "
+        "validate_covariate_design(covariates, rownames(covariates), 'test')"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        ["Rscript", "-e", program],
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert expected_error in result.stderr
 
 
 def parse_vcf_manifest(path):

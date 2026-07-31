@@ -1,17 +1,20 @@
 #!/usr/bin/env Rscript
 
-required_packages <- c("edgeR", "limma", "corral", "PCAtools", "scran", "WGCNA", "rtracklayer")
-missing_packages <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
-if (length(missing_packages) > 0L) {
-  stop(
-    "Missing required R packages: ", paste(missing_packages, collapse = ", "),
-    ". Install the RNA container dependencies before running this script.",
-    call. = FALSE
-  )
-}
-
 fail <- function(message) {
   stop(message, call. = FALSE)
+}
+
+load_required_packages <- function() {
+  required_packages <- c("edgeR", "limma", "corral", "PCAtools", "scran", "WGCNA", "rtracklayer")
+  missing_packages <- required_packages[
+    !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+  ]
+  if (length(missing_packages) > 0L) {
+    fail(paste0(
+      "Missing required R packages: ", paste(missing_packages, collapse = ", "),
+      ". Install the RNA container dependencies before running this script."
+    ))
+  }
 }
 
 parse_cli <- function(arguments) {
@@ -30,12 +33,14 @@ parse_cli <- function(arguments) {
     fail("Arguments must be supplied as --name value pairs")
   }
   for (index in seq.int(1L, length(arguments), by = 2L)) {
-    key <- sub("^--", "", arguments[[index]])
-    if (!startsWith(arguments[[index]], "--") || !nzchar(key)) {
+    flag <- arguments[[index]]
+    raw_key <- sub("^--", "", flag)
+    key <- gsub("-", "_", raw_key, fixed = TRUE)
+    if (!startsWith(flag, "--") || !nzchar(raw_key)) {
       fail("Arguments must use --name value pairs")
     }
     if (!key %in% c(required, names(defaults))) {
-      fail(paste0("Unknown argument --", key))
+      fail(paste0("Unknown argument --", raw_key))
     }
     if (key %in% supplied) {
       fail(paste0("Argument --", key, " was supplied more than once"))
@@ -235,22 +240,41 @@ lower_half_noise <- function(variance_spectrum) {
   noise
 }
 
-full_rank_covariates <- function(covariates) {
-  if (ncol(covariates) == 0L) {
-    return(covariates)
+validate_covariate_design <- function(covariates, sample_ids, context) {
+  if (!identical(rownames(covariates), sample_ids)) {
+    fail(paste0(context, " covariates are not ordered to match the retained samples"))
+  }
+  if (ncol(covariates) == 0L || any(!nzchar(colnames(covariates))) || anyDuplicated(colnames(covariates))) {
+    fail(paste0(context, " must contain uniquely named covariate columns"))
+  }
+  if (any(!is.finite(covariates))) {
+    fail(paste0(context, " contains non-finite values"))
   }
   design <- cbind(Intercept = 1, covariates)
-  decomposition <- qr(design)
-  selected <- decomposition$pivot[seq_len(decomposition$rank)]
-  selected <- selected[selected != 1L] - 1L
-  covariates[, selected, drop = FALSE]
+  design_rank <- qr(design)$rank
+  design_columns <- colnames(covariates)
+  if (design_rank != ncol(design)) {
+    fail(sprintf(
+      "%s is rank-deficient: %d samples, %d covariates (%s), design rank %d of %d",
+      context, nrow(covariates), ncol(covariates), paste(design_columns, collapse = ", "),
+      design_rank, ncol(design)
+    ))
+  }
+  residual_degrees_freedom <- nrow(covariates) - design_rank
+  if (residual_degrees_freedom < 1L) {
+    fail(sprintf(
+      "%s leaves no residual degrees of freedom: %d samples, design rank %d, covariates (%s)",
+      context, nrow(covariates), design_rank, paste(design_columns, collapse = ", ")
+    ))
+  }
+  list(
+    columns = design_columns,
+    design_rank = design_rank,
+    residual_degrees_freedom = residual_degrees_freedom
+  )
 }
 
 remove_covariates <- function(expression, covariates) {
-  covariates <- full_rank_covariates(covariates)
-  if (ncol(covariates) == 0L) {
-    return(expression)
-  }
   limma::removeBatchEffect(expression, covariates = covariates)
 }
 
@@ -344,11 +368,17 @@ run_pipeline <- function(options) {
     fail("PCA output does not contain the selected phenotype-PC score columns")
   }
   expression_pcs <- pca_result$rotated[kept_samples, expression_pc_names, drop = FALSE]
+  phenotype_design <- validate_covariate_design(
+    expression_pcs, kept_samples, "Selected phenotype-PC adjustment"
+  )
 
   counts_aligned <- qc_counts[rownames(qc_normalized), kept_samples, drop = FALSE]
   logcpm <- edgeR::cpm(edgeR::DGEList(counts_aligned), log = TRUE)
   logcpm_adjusted <- remove_covariates(logcpm, expression_pcs)
   covariates <- cbind(expression_pcs, genotype_covariates)
+  residual_design <- validate_covariate_design(
+    covariates, kept_samples, "Phenotype/genotype residualization"
+  )
   residualized <- remove_covariates(qc_normalized, covariates)
   expression_zscore <- t(scale(t(residualized)))
   if (any(!is.finite(expression_zscore))) {
@@ -371,6 +401,12 @@ run_pipeline <- function(options) {
     noise_variance = noise,
     noise_source = noise_source,
     n_genotype_pcs = options$n_geno_pcs,
+    phenotype_pc_columns = paste(phenotype_design$columns, collapse = ","),
+    genotype_pc_columns = paste(colnames(genotype_covariates), collapse = ","),
+    residualization_covariate_columns = paste(residual_design$columns, collapse = ","),
+    phenotype_design_rank = phenotype_design$design_rank,
+    residualization_design_rank = residual_design$design_rank,
+    residual_degrees_freedom = residual_design$residual_degrees_freedom,
     n_samples_after_qc = length(kept_samples),
     n_genes_after_qc = nrow(qc_normalized),
     stringsAsFactors = FALSE
@@ -389,11 +425,18 @@ run_pipeline <- function(options) {
   }
 }
 
-options <- parse_cli(commandArgs(trailingOnly = TRUE))
-tryCatch(
-  run_pipeline(options),
-  error = function(error) {
-    message("run_rna_underlier.R: error: ", conditionMessage(error))
-    quit(status = 2L)
-  }
-)
+run_main <- function() {
+  options <- parse_cli(commandArgs(trailingOnly = TRUE))
+  load_required_packages()
+  run_pipeline(options)
+}
+
+if (!identical(Sys.getenv("TOPMED_RNA_UNDERLIER_NO_MAIN"), "1")) {
+  tryCatch(
+    run_main(),
+    error = function(error) {
+      message("run_rna_underlier.R: error: ", conditionMessage(error))
+      quit(status = 2L)
+    }
+  )
+}
