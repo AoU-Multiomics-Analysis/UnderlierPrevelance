@@ -6,11 +6,25 @@ on:
     branches: [ "main" ]
     paths:
       - ".github/workflows/wdl-validation.yml"
+      - "README.md"
+      - "docs/**/*.md"
+      - "scripts/**/*.py"
+      - "scripts/**/*.R"
+      - "scripts/**/*.sh"
+      - "tests/**/*.py"
+      - "tests/fixtures/**"
       - "workflows/**/*.wdl"
   pull_request:
     branches: [ "main" ]
     paths:
       - ".github/workflows/wdl-validation.yml"
+      - "README.md"
+      - "docs/**/*.md"
+      - "scripts/**/*.py"
+      - "scripts/**/*.R"
+      - "scripts/**/*.sh"
+      - "tests/**/*.py"
+      - "tests/fixtures/**"
       - "workflows/**/*.wdl"
 
 jobs:
@@ -21,8 +35,22 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lightweight test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes bcftools r-base
+          python -m pip install --upgrade pip pytest
+
       - name: Install miniwdl
         run: pipx install miniwdl
+
+      - name: Run lightweight synthetic tests
+        run: pytest -q
 
       - name: Check WDLs
         run: |
