@@ -12,6 +12,7 @@ on:
       - "scripts/**/*.R"
       - "scripts/**/*.sh"
       - "tests/**/*.py"
+      - "tests/**/*.json"
       - "tests/fixtures/**"
       - "workflows/**/*.wdl"
   pull_request:
@@ -24,6 +25,7 @@ on:
       - "scripts/**/*.R"
       - "scripts/**/*.sh"
       - "tests/**/*.py"
+      - "tests/**/*.json"
       - "tests/fixtures/**"
       - "workflows/**/*.wdl"
 

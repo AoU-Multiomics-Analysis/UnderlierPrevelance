@@ -57,17 +57,14 @@ For each gene, an observation must first have PC-adjusted log2-CPM less than tha
 
 ### RNA outputs
 
-The RNA branch exposes these outputs (concrete in `rna_underlier.wdl`, optional from `main.wdl` when `run_rna` is false):
+At the WDL interface, the RNA branch exposes named `converted_counts_tsv`, `selected_pc_metadata`, and `expr_z_join` outputs plus two `Array[File]` outputs: `underlier_artifacts` and `prevalence_artifacts`. The named outputs map to `counts.tsv`, `selected_phenotype_pcs.tsv`, and `expr_z_join.tsv.gz`, respectively. The following files are members of the artifact arrays; they are not individually named WDL output fields. These outputs are concrete in `rna_underlier.wdl` and optional from `main.wdl` when `run_rna` is false.
 
-| Output | Meaning |
+| Artifact array | File | Meaning |
 | --- | --- |
-| `converted_counts_tsv` | Validated GCT converted to `gene_id` plus sample columns. |
-| `selected_phenotype_pcs.tsv` | Gavish–Donoho PC-selection and residualization metadata. |
-| `expr_z_join.tsv.gz` | One row per tested gene/sample with residual `expression_zscore` and PC-adjusted `expression_logcpm`. |
-| `underliers_haplo.tsv.gz` | Calls meeting the expression-drop criterion. |
-| `underliers_z_-3.tsv.gz` | Calls meeting both the haplo criterion and `expression_zscore < -3`. |
-| `rna_outlier_prevalence_per_gene_haplo.tsv` | Per-gene prevalence for haplo calls. |
-| `rna_outlier_prevalence_per_gene_z_-3.tsv` | Per-gene prevalence for strict calls. |
+| `underlier_artifacts` | `underliers_haplo.tsv.gz` | Calls meeting the expression-drop criterion. |
+| `underlier_artifacts` | `underliers_z_-3.tsv.gz` | Calls meeting both the haplo criterion and `expression_zscore < -3`. |
+| `prevalence_artifacts` | `rna_outlier_prevalence_per_gene_haplo.tsv` | Per-gene prevalence for haplo calls. |
+| `prevalence_artifacts` | `rna_outlier_prevalence_per_gene_z_-3.tsv` | Per-gene prevalence for strict calls. |
 
 Each prevalence table contains `gene_id`, version-stripped `gene_nv`, `symbol`, `n_underlier_subjects`, `n_subjects_tested`, and `rna_outlier_prevalence = n_underlier_subjects / n_subjects_tested`. Subjects are counted once per gene even if a table could otherwise contain duplicate rows.
 
@@ -106,10 +103,16 @@ The branch outputs `filtered_vcf`, `filtered_vcf_index`, and `q2_incidence_tsv`;
 
 ## Validation, CI, and runtime limitations
 
-GitHub Actions installs `pytest`, `bcftools`, `r-base`, and `miniwdl`; it runs the synthetic tests followed by validation of every WDL under `workflows/`. Run the equivalent local checks with:
+GitHub Actions installs `pytest`, `bcftools`, `r-base` (which provides `Rscript`), and `miniwdl`; it runs the synthetic tests followed by validation of every WDL under `workflows/`.
+
+For local validation, `pytest` and `miniwdl` are required Python commands. The full lightweight `pytest` suite also requires native `bcftools` and `Rscript`: VCF-filter tests invoke `bcftools`, and dependency-free RNA interface tests invoke `Rscript`. Install the two Python commands, install `bcftools` and R through your operating system or environment manager, and confirm all four commands are available before running the complete suite:
 
 ```bash
 python -m pip install pytest miniwdl
+command -v pytest
+command -v miniwdl
+command -v bcftools
+command -v Rscript
 pytest -q
 for wdl in workflows/*.wdl; do miniwdl check "$wdl"; done
 git diff --check
