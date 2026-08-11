@@ -82,8 +82,8 @@ task StageVcfPairs {
   runtime {
     docker: docker_image
     cpu: 1
-    memory: "2 GiB"
-    disks: "local-disk 100 HDD"
+    memory: "32 GiB"
+    disks: "local-disk 128 HDD"
     maxRetries: 2
   }
 }
@@ -127,8 +127,8 @@ task FilterVariants {
   runtime {
     docker: docker_image
     cpu: threads
-    memory: "8 GiB"
-    disks: "local-disk 100 HDD"
+    memory: "32 GiB"
+    disks: "local-disk 128 HDD"
     maxRetries: 2
   }
 }
@@ -181,8 +181,8 @@ task ComputeQ2Incidence {
   runtime {
     docker: docker_image
     cpu: 1
-    memory: "4 GiB"
-    disks: "local-disk 20 HDD"
+    memory: "32 GiB"
+    disks: "local-disk 128 HDD"
     maxRetries: 2
   }
 }

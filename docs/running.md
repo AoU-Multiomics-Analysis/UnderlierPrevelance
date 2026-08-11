@@ -43,7 +43,7 @@ For a branch-only invocation, use the matching workflow and an input JSON whose 
 
 The workflow converts this GCT to its internal `gene_id`-by-sample TSV. It matches genes to protein-coding `gene` records in `rna_gencode_gff`; the GFF or GFF3 must include `gene_id` and `gene_type` or `gene_biotype` attributes.
 
-GCT conversion is streamed and validated one gene row at a time, then atomically renamed into place only after the declared dimensions and every row pass validation. Converter memory therefore scales with the sample header, one numeric row, and the set of gene IDs needed for duplicate detection rather than with the full count matrix. The `ConvertGct` task retains its 2 GiB memory request; allow local disk for the converted TSV and note that the downstream R analysis still loads the converted matrix and has a separate 16 GiB request.
+GCT conversion is streamed and validated one gene row at a time, then atomically renamed into place only after the declared dimensions and every row pass validation. Converter memory therefore scales with the sample header, one numeric row, and the set of gene IDs needed for duplicate detection rather than with the full count matrix. Every WDL task requests 32 GiB memory and 128 GiB of local disk by default; this includes the converter and downstream R analysis so large intermediate matrices and staged VCFs have consistent capacity.
 
 `rna_genotype_covariates_tsv` is a tab-delimited table with this schema:
 

@@ -23,8 +23,8 @@ task ConvertGct {
   runtime {
     docker: docker_image
     cpu: 1
-    memory: "2 GiB"
-    disks: "local-disk 10 HDD"
+    memory: "32 GiB"
+    disks: "local-disk 128 HDD"
     maxRetries: 2
   }
 }
@@ -91,8 +91,8 @@ task RunRnaUnderlier {
   runtime {
     docker: docker_image
     cpu: threads
-    memory: "16 GiB"
-    disks: "local-disk 100 HDD"
+    memory: "32 GiB"
+    disks: "local-disk 128 HDD"
     maxRetries: 2
   }
 }

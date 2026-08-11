@@ -31,3 +31,10 @@ def test_runtime_scripts_are_packaged_and_not_wdl_file_inputs():
 
     test_inputs = json.loads((ROOT / "tests" / "test_wdl_inputs.json").read_text())
     assert not any("script" in input_name for input_name in test_inputs)
+
+
+def test_all_wdl_tasks_use_default_32_gib_memory_and_128_gib_disk():
+    for workflow_path in (ROOT / "workflows").glob("*.wdl"):
+        workflow_text = workflow_path.read_text()
+        assert workflow_text.count('memory: "32 GiB"') == workflow_text.count("runtime {")
+        assert workflow_text.count('disks: "local-disk 128 HDD"') == workflow_text.count("runtime {")
