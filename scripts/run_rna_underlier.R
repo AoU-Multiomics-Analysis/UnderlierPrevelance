@@ -19,10 +19,12 @@ load_required_packages <- function() {
 
 parse_cli <- function(arguments) {
   defaults <- list(
+    n_geno_pcs = NULL,
     phenotype_pc_noise = NULL,
     connectivity_z = -3,
     logcpm_drop = 1,
     z_cutoffs_file = NULL,
+    z_cutoff = NULL,
     threads = 1L
   )
   required <- c("counts", "genotype_covariates", "gencode", "out_dir")
@@ -77,7 +79,13 @@ parse_cli <- function(arguments) {
   if (values$logcpm_drop < 0) {
     fail("--logcpm-drop must be non-negative")
   }
-  if (is.null(values$z_cutoffs_file)) {
+  if (!is.null(values$z_cutoff) && !is.null(values$z_cutoffs_file)) {
+    fail("--z-cutoff and --z-cutoffs-file cannot be supplied together")
+  }
+  if (!is.null(values$z_cutoff)) {
+    values$z_cutoff <- parse_number(values$z_cutoff, "z-cutoff")
+    values$z_cutoffs <- values$z_cutoff
+  } else if (is.null(values$z_cutoffs_file)) {
     values$z_cutoffs <- seq(-1, -10, by = -1)
   } else {
     if (!file.exists(values$z_cutoffs_file)) {
