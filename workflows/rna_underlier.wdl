@@ -39,6 +39,7 @@ task RunRnaUnderlier {
     Float conn_z
     Float logcpm_drop
     Int threads
+    Array[Float] z_cutoffs
     String docker_image
   }
 
@@ -62,6 +63,7 @@ task RunRnaUnderlier {
       --connectivity-z "~{conn_z}" \
       --logcpm-drop "~{logcpm_drop}" \
       --threads "~{threads}" \
+      --z-cutoffs-file "~{write_lines(z_cutoffs)}" \
       "${phenotype_pc_noise_args[@]}"
 
     test -s rna_outputs/selected_phenotype_pcs.tsv
@@ -107,6 +109,7 @@ workflow rna_underlier {
     Float conn_z = -3.0
     Float logcpm_drop = 1.0
     Int threads = 1
+    Array[Float] z_cutoffs = [-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0]
     String docker_image = "underlier-prevalence:test"
   }
 
@@ -126,6 +129,7 @@ workflow rna_underlier {
       conn_z = conn_z,
       logcpm_drop = logcpm_drop,
       threads = threads,
+      z_cutoffs = z_cutoffs,
       docker_image = docker_image
   }
 

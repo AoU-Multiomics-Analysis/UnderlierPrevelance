@@ -17,6 +17,7 @@ workflow main {
     Float rna_conn_z = -3.0
     Float rna_logcpm_drop = 1.0
     Int rna_threads = 1
+    Array[Float] rna_z_cutoffs = [-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0]
 
     Array[File]? q2_genotype_vcfs
     Array[File]? q2_genotype_vcf_indexes
@@ -40,6 +41,7 @@ workflow main {
         conn_z = rna_conn_z,
         logcpm_drop = rna_logcpm_drop,
         threads = rna_threads,
+        z_cutoffs = rna_z_cutoffs,
         docker_image = docker_image
     }
   }

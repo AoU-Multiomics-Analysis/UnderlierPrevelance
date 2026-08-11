@@ -22,7 +22,7 @@ parse_cli <- function(arguments) {
     phenotype_pc_noise = NULL,
     connectivity_z = -3,
     logcpm_drop = 1,
-    z_cutoff = -3,
+    z_cutoffs_file = NULL,
     threads = 1L
   )
   required <- c("counts", "genotype_covariates", "gencode", "out_dir", "n_geno_pcs")
@@ -72,9 +72,28 @@ parse_cli <- function(arguments) {
   values$threads <- parse_integer(values$threads, "threads", 1L)
   values$connectivity_z <- parse_number(values$connectivity_z, "connectivity-z")
   values$logcpm_drop <- parse_number(values$logcpm_drop, "logcpm-drop")
-  values$z_cutoff <- parse_number(values$z_cutoff, "z-cutoff")
   if (values$logcpm_drop < 0) {
     fail("--logcpm-drop must be non-negative")
+  }
+  if (is.null(values$z_cutoffs_file)) {
+    values$z_cutoffs <- seq(-1, -10, by = -1)
+  } else {
+    if (!file.exists(values$z_cutoffs_file)) {
+      fail(paste0("--z-cutoffs-file does not exist: ", values$z_cutoffs_file))
+    }
+    raw_cutoffs <- trimws(readLines(values$z_cutoffs_file, warn = FALSE))
+    raw_cutoffs <- raw_cutoffs[nzchar(raw_cutoffs)]
+    if (length(raw_cutoffs) == 0L) {
+      fail("--z-cutoffs-file must contain at least one cutoff")
+    }
+    values$z_cutoffs <- vapply(
+      raw_cutoffs,
+      function(value) parse_number(value, "z-cutoff"),
+      numeric(1)
+    )
+  }
+  if (any(values$z_cutoffs >= 0) || anyDuplicated(values$z_cutoffs)) {
+    fail("z-score cutoffs must be unique and strictly negative")
   }
   if (!is.null(values$phenotype_pc_noise)) {
     values$phenotype_pc_noise <- parse_number(values$phenotype_pc_noise, "phenotype-pc-noise")
@@ -459,9 +478,11 @@ run_pipeline <- function(options) {
   )
   write_tsv(metadata, output_path("selected_phenotype_pcs.tsv"))
 
-  definitions <- list(
-    list(tag = "haplo", z_cutoff = NULL),
-    list(tag = strict_output_tag(options$z_cutoff), z_cutoff = options$z_cutoff)
+  definitions <- c(
+    list(list(tag = "haplo", z_cutoff = NULL)),
+    lapply(options$z_cutoffs, function(z_cutoff) {
+      list(tag = strict_output_tag(z_cutoff), z_cutoff = z_cutoff)
+    })
   )
   for (definition in definitions) {
     underliers <- call_underliers(expr_z_join, definition$z_cutoff, options$logcpm_drop)

@@ -38,3 +38,14 @@ def test_all_wdl_tasks_use_default_32_gib_memory_and_128_gib_disk():
         workflow_text = workflow_path.read_text()
         assert workflow_text.count('memory: "32 GiB"') == workflow_text.count("runtime {")
         assert workflow_text.count('disks: "local-disk 128 HDD"') == workflow_text.count("runtime {")
+
+
+def test_rna_workflow_exposes_default_z_cutoff_range():
+    workflow_text = (ROOT / "workflows" / "rna_underlier.wdl").read_text()
+    main_text = (ROOT / "workflows" / "main.wdl").read_text()
+    r_script = (ROOT / "scripts" / "run_rna_underlier.R").read_text()
+    expected_cutoffs = ", ".join(f"{value}.0" for value in range(-1, -11, -1))
+    assert f"Array[Float] z_cutoffs = [{expected_cutoffs}]" in workflow_text
+    assert "Array[Float] rna_z_cutoffs" in main_text
+    assert "--z-cutoffs-file" in workflow_text
+    assert "z_cutoffs" in r_script
