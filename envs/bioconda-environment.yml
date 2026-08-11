@@ -3,6 +3,20 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
+  # Shared R/Python runtime. Keeping these packages in one conda environment
+  # avoids compiling the R/Bioconductor stack during the Docker build.
+  - r-base=4.5
+  - bioconductor-edger
+  - bioconductor-limma
+  - bioconductor-corral
+  - bioconductor-pcatools
+  - bioconductor-scran
+  - bioconductor-scuttle
+  - bioconductor-rtracklayer
+  - r-wgcna
+  - r-vroom
+  - r-tidyverse
+  - r-magrittr
   # q2 VCF filtering and aggregation runtime
   - bcftools=1.20
   - python=3.12.7

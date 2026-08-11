@@ -12,6 +12,18 @@ All WDL tasks use the configurable `docker_image` input, which defaults to `unde
 docker build -f envs/Dockerfile -t underlier-prevalence:test .
 ```
 
+The production image is built for Linux/amd64, matching the current Bioconda
+builds for the R/Bioconductor stack. On Apple Silicon, use Docker's amd64
+emulation explicitly:
+
+```bash
+docker build --platform linux/amd64 -f envs/Dockerfile -t underlier-prevalence:test .
+```
+
+The image installs R, Bioconductor, Python, and bcftools from the conda-forge
+and Bioconda channels. This avoids the previous Docker build step that
+compiled the R/Bioconductor stack from source with BiocManager.
+
 The runtime image owns the analysis scripts. The WDL inputs should not include
 `convert_gct.py`, `run_rna_underlier.R`, `filter_variants.sh`, or
 `compute_q2_incidence.py`; the tasks invoke the copies packaged at

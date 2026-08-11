@@ -40,6 +40,30 @@ def test_all_wdl_tasks_use_default_32_gib_memory_and_128_gib_disk():
         assert workflow_text.count('disks: "local-disk 128 HDD"') == workflow_text.count("runtime {")
 
 
+def test_runtime_r_stack_is_declared_in_conda_environment():
+    dockerfile = (ROOT / "envs" / "Dockerfile").read_text()
+    environment = (ROOT / "envs" / "bioconda-environment.yml").read_text()
+
+    assert "FROM mambaorg/micromamba:2.0.5" in dockerfile
+    assert "BiocManager" not in dockerfile
+    assert "install.packages" not in dockerfile
+    for package in (
+        "r-base",
+        "bioconductor-edger",
+        "bioconductor-limma",
+        "bioconductor-corral",
+        "bioconductor-pcatools",
+        "bioconductor-scran",
+        "bioconductor-scuttle",
+        "bioconductor-rtracklayer",
+        "r-wgcna",
+        "r-vroom",
+        "r-tidyverse",
+        "r-magrittr",
+    ):
+        assert f"- {package}" in environment
+
+
 def test_rna_workflow_exposes_default_z_cutoff_range():
     workflow_text = (ROOT / "workflows" / "rna_underlier.wdl").read_text()
     main_text = (ROOT / "workflows" / "main.wdl").read_text()
