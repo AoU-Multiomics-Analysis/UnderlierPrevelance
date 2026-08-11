@@ -181,8 +181,8 @@ read_genotype_covariates <- function(path, sample_ids, n_geno_pcs) {
   pc_columns <- parsed$header[-sample_column]
   pc_numbers <- suppressWarnings(as.integer(sub("^(?:Genotype_PC|GENETICPC)", "", pc_columns)))
   if (any(is.na(pc_numbers)) || anyDuplicated(pc_numbers) ||
-      !identical(sort(pc_numbers), seq_len(length(pc_numbers)))) {
-    fail("Genotype-covariate columns must be named Genotype_PC1... or GENETICPC1... without gaps")
+      !identical(sort(pc_numbers), seq_along(pc_numbers))) {
+    fail("Genotype-covariate TSV columns after sample_id must be named Genotype_PC1... or GENETICPC1... without gaps")
   }
   pc_order <- order(pc_numbers)
   pc_columns <- pc_columns[pc_order]
