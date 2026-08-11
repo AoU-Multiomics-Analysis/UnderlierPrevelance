@@ -10,8 +10,6 @@
   "main.rna_conn_z": -3.0,
   "main.rna_logcpm_drop": 1.0,
   "main.rna_threads": 1,
-  "main.rna_convert_gct_script": "scripts/convert_gct.py",
-  "main.rna_underlier_script": "scripts/run_rna_underlier.R",
   "main.q2_genotype_vcfs": [
     "tests/fixtures/cohort.vcf",
     "tests/fixtures/cohort_2.vcf"
@@ -25,7 +23,5 @@
   "main.q2_af_max": 0.25,
   "main.q2_missing_max": 0.1,
   "main.q2_qual_min": 125.0,
-  "main.q2_threads": 1,
-  "main.q2_filter_variants_script": "scripts/filter_variants.sh",
-  "main.q2_compute_q2_script": "scripts/compute_q2_incidence.py"
+  "main.q2_threads": 1
 }

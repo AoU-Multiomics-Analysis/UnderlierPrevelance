@@ -3,7 +3,6 @@ version 1.0
 task ConvertGct {
   input {
     File counts_gct
-    File convert_gct_script
     String docker_image
   }
 
@@ -11,7 +10,7 @@ task ConvertGct {
     set -euo pipefail
 
     mkdir -p converted
-    python3 "~{convert_gct_script}" \
+    python3 /opt/underlier-prevalence/scripts/convert_gct.py \
       --input "~{counts_gct}" \
       --output converted/counts.tsv
     test -s converted/counts.tsv
@@ -40,7 +39,6 @@ task RunRnaUnderlier {
     Float conn_z
     Float logcpm_drop
     Int threads
-    File rna_underlier_script
     String docker_image
   }
 
@@ -55,7 +53,7 @@ task RunRnaUnderlier {
       phenotype_pc_noise_args=(--phenotype-pc-noise "$phenotype_pc_noise")
     fi
 
-    Rscript "~{rna_underlier_script}" \
+    Rscript /opt/underlier-prevalence/scripts/run_rna_underlier.R \
       --counts "~{counts_tsv}" \
       --genotype-covariates "~{genotype_covariates_tsv}" \
       --gencode "~{gencode_gff}" \
@@ -109,15 +107,12 @@ workflow rna_underlier {
     Float conn_z = -3.0
     Float logcpm_drop = 1.0
     Int threads = 1
-    File convert_gct_script
-    File rna_underlier_script
     String docker_image = "underlier-prevalence:test"
   }
 
   call ConvertGct {
     input:
       counts_gct = counts_gct,
-      convert_gct_script = convert_gct_script,
       docker_image = docker_image
   }
 
@@ -131,7 +126,6 @@ workflow rna_underlier {
       conn_z = conn_z,
       logcpm_drop = logcpm_drop,
       threads = threads,
-      rna_underlier_script = rna_underlier_script,
       docker_image = docker_image
   }
 

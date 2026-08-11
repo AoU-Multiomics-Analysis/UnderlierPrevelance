@@ -17,8 +17,6 @@ workflow main {
     Float rna_conn_z = -3.0
     Float rna_logcpm_drop = 1.0
     Int rna_threads = 1
-    File? rna_convert_gct_script
-    File? rna_underlier_script
 
     Array[File]? q2_genotype_vcfs
     Array[File]? q2_genotype_vcf_indexes
@@ -29,8 +27,6 @@ workflow main {
     Float q2_qual_min = 100.0
     Int q2_threads = 1
     File? q2_gene_whitelist
-    File? q2_filter_variants_script
-    File? q2_compute_q2_script
   }
 
   if (run_rna) {
@@ -44,8 +40,6 @@ workflow main {
         conn_z = rna_conn_z,
         logcpm_drop = rna_logcpm_drop,
         threads = rna_threads,
-        convert_gct_script = select_first([rna_convert_gct_script]),
-        rna_underlier_script = select_first([rna_underlier_script]),
         docker_image = docker_image
     }
   }
@@ -62,8 +56,6 @@ workflow main {
         qual_min = q2_qual_min,
         threads = q2_threads,
         gene_whitelist = q2_gene_whitelist,
-        filter_variants_script = select_first([q2_filter_variants_script]),
-        compute_q2_script = select_first([q2_compute_q2_script]),
         docker_image = docker_image
     }
   }

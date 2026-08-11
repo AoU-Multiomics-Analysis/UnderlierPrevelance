@@ -95,7 +95,6 @@ task FilterVariants {
     Float missing_max
     Float qual_min
     Int threads
-    File filter_variants_script
     String docker_image
   }
 
@@ -108,7 +107,7 @@ task FilterVariants {
       cp -L "$staged_file" "genotype_inputs/$(basename "$staged_file")"
     done < "$staged_list"
 
-    bash "~{filter_variants_script}" \
+    bash /opt/underlier-prevalence/scripts/filter_variants.sh \
       --input-dir genotype_inputs \
       --output-dir filtered \
       --af-max "~{af_max}" \
@@ -141,7 +140,6 @@ task ComputeQ2Incidence {
     File clinvar_vcf
     File clinvar_vcf_index
     File? gene_whitelist
-    File compute_q2_script
     String docker_image
   }
 
@@ -167,7 +165,7 @@ task ComputeQ2Incidence {
       gene_args=(--genes "$gene_whitelist")
     fi
 
-    python3 "~{compute_q2_script}" \
+    python3 /opt/underlier-prevalence/scripts/compute_q2_incidence.py \
       --clinvar "~{clinvar_vcf}" \
       --vcf-glob 'cohort/*.filtered.vcf.gz' \
       --out results/q2_incidence.tsv \
@@ -200,8 +198,6 @@ workflow q2_incidence {
     Float qual_min = 100.0
     Int threads = 1
     File? gene_whitelist
-    File filter_variants_script
-    File compute_q2_script
     String docker_image = "underlier-prevalence:test"
   }
 
@@ -221,7 +217,6 @@ workflow q2_incidence {
       missing_max = missing_max,
       qual_min = qual_min,
       threads = threads,
-      filter_variants_script = filter_variants_script,
       docker_image = docker_image
   }
 
@@ -232,7 +227,6 @@ workflow q2_incidence {
       clinvar_vcf = StageVcfPairs.staged_clinvar_vcf,
       clinvar_vcf_index = StageVcfPairs.staged_clinvar_index,
       gene_whitelist = gene_whitelist,
-      compute_q2_script = compute_q2_script,
       docker_image = docker_image
   }
 

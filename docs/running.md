@@ -12,6 +12,11 @@ All WDL tasks use the configurable `docker_image` input, which defaults to `unde
 docker build -f envs/Dockerfile -t underlier-prevalence:test .
 ```
 
+The runtime image owns the analysis scripts. The WDL inputs should not include
+`convert_gct.py`, `run_rna_underlier.R`, `filter_variants.sh`, or
+`compute_q2_incidence.py`; the tasks invoke the copies packaged at
+`/opt/underlier-prevalence/scripts/`.
+
 ## Main workflow flags and inputs
 
 `main.run_rna` and `main.run_q2` select the RNA and q² branches respectively. Both default to `false`. Set one flag to run its branch independently, or set both to `true` to run both branches. When a branch is enabled, all of its required `main.rna_*` or `main.q2_*` inputs must be supplied; optional top-level inputs are selected by the enabled WDL call and are therefore not silently substituted.

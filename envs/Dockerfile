@@ -52,4 +52,6 @@ RUN Rscript -e 'packages <- c("edgeR", "limma", "corral", "PCAtools", "scran", "
     && bcftools --version \
     && bcftools +fill-tags -h
 
+COPY scripts/ /opt/underlier-prevalence/scripts/
+
 WORKDIR /work
