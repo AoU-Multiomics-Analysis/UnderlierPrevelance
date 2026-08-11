@@ -34,10 +34,15 @@ def test_runtime_scripts_are_packaged_and_not_wdl_file_inputs():
     assert not any("script" in input_name for input_name in test_inputs)
 
 
-def test_all_wdl_tasks_use_default_32_gib_memory_and_128_gib_disk():
+def test_wdl_tasks_use_expected_memory_and_128_gib_disk():
     for workflow_path in (ROOT / "workflows").glob("*.wdl"):
         workflow_text = workflow_path.read_text()
-        assert workflow_text.count('memory: "32 GiB"') == workflow_text.count("runtime {")
+        runtime_count = workflow_text.count("runtime {")
+        if workflow_path.name == "rna_underlier.wdl":
+            assert workflow_text.count('memory: "32 GiB"') == runtime_count - 1
+            assert workflow_text.count('memory: "256 GiB"') == 1
+        else:
+            assert workflow_text.count('memory: "32 GiB"') == runtime_count
         assert workflow_text.count('disks: "local-disk 128 HDD"') == workflow_text.count("runtime {")
 
 

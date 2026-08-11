@@ -59,7 +59,7 @@ gzip-compressed (`.gct.gz`):
 
 The workflow converts this GCT to its internal `gene_id`-by-sample TSV. It matches genes to protein-coding `gene` records in `rna_gencode_gff`; the GFF or GFF3 must include `gene_id` and `gene_type` or `gene_biotype` attributes.
 
-GCT conversion is streamed and validated one gene row at a time, then atomically renamed into place only after the declared dimensions and every row pass validation. Converter memory therefore scales with the sample header, one numeric row, and the set of gene IDs needed for duplicate detection rather than with the full count matrix. Every WDL task requests 32 GiB memory and 128 GiB of local disk by default; this includes the converter and downstream R analysis so large intermediate matrices and staged VCFs have consistent capacity.
+GCT conversion is streamed and validated one gene row at a time, then atomically renamed into place only after the declared dimensions and every row pass validation. Converter memory therefore scales with the sample header, one numeric row, and the set of gene IDs needed for duplicate detection rather than with the full count matrix. Tasks request 32 GiB memory and 128 GiB of local disk by default; the memory-intensive `RunRnaUnderlier` task requests 256 GiB. This gives the downstream R analysis room for large expression matrices while keeping conversion and VCF-processing tasks at the lower default.
 
 `rna_genotype_covariates_tsv` is a tab-delimited table with this schema:
 

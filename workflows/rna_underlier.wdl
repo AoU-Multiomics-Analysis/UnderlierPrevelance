@@ -100,7 +100,7 @@ task RunRnaUnderlier {
   runtime {
     docker: docker_image
     cpu: threads
-    memory: "32 GiB"
+    memory: "256 GiB"
     disks: "local-disk 128 HDD"
     maxRetries: 2
   }
