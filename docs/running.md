@@ -49,7 +49,8 @@ For a branch-only invocation, use the matching workflow and an input JSON whose 
 
 ### Required input contract
 
-`rna_counts_gct` must be a standard GCT v1.2 file:
+`rna_counts_gct` must be a standard GCT v1.2 file, either plain text or
+gzip-compressed (`.gct.gz`):
 
 1. Line 1 is exactly `#1.2`.
 2. Line 2 contains tab-delimited integer counts of genes and samples.

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import math
 import os
 import sys
@@ -61,7 +62,14 @@ def convert_gct(input_path: Path, output_path: Path) -> None:
     """Stream a validated GCT to an atomically replaced counts TSV."""
     temporary_path: Path | None = None
     try:
-        with input_path.open("r", encoding="utf-8", newline="") as input_handle:
+        with input_path.open("rb") as probe:
+            is_gzip = probe.read(2) == b"\x1f\x8b"
+        input_stream = (
+            gzip.open(input_path, "rt", encoding="utf-8", newline="")
+            if is_gzip
+            else input_path.open("r", encoding="utf-8", newline="")
+        )
+        with input_stream as input_handle:
             version_line = input_handle.readline()
             dimensions_line = input_handle.readline()
             header_line = input_handle.readline()

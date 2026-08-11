@@ -1,3 +1,4 @@
+import gzip
 import os
 import shutil
 import subprocess
@@ -29,6 +30,18 @@ def test_convert_gct_writes_gene_id_and_sample_columns(tmp_path):
     run_converter(FIXTURES / "counts.gct", output)
     header = output.read_text().splitlines()[0].split("\t")
     assert header == ["gene_id", "S1", "S2", "S3", "S4"]
+
+
+def test_convert_gct_accepts_gzip_compressed_input(tmp_path):
+    compressed = tmp_path / "counts.gct.gz"
+    compressed.write_bytes(
+        gzip.compress((FIXTURES / "counts.gct").read_bytes())
+    )
+    output = tmp_path / "counts.tsv"
+
+    run_converter(compressed, output)
+
+    assert output.read_text().splitlines()[0] == "gene_id\tS1\tS2\tS3\tS4"
 
 
 def test_converter_rejects_duplicate_gene_ids(tmp_path):
