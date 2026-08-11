@@ -270,13 +270,13 @@ filter_expression <- function(counts) {
 }
 
 freeman_tukey_normalize <- function(counts) {
-  normalized <- corral::corral_preproc(counts, rtype = "freemantukey")
+  normalized <- as.matrix(corral::corral_preproc(counts, rtype = "freemantukey"))
   colnames(normalized) <- colnames(counts)
   normalized
 }
 
 connectivity_kept_samples <- function(normalized_expression, threshold) {
-  adjacency <- 0.5 + 0.5 * stats::cor(normalized_expression)
+  adjacency <- 0.5 + 0.5 * stats::cor(as.matrix(normalized_expression))
   connectivity <- WGCNA::fundamentalNetworkConcepts(adjacency)$Connectivity
   names(connectivity) <- colnames(normalized_expression)
   connectivity_sd <- stats::sd(connectivity)
