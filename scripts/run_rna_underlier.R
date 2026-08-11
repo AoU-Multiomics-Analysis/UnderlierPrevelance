@@ -25,7 +25,7 @@ parse_cli <- function(arguments) {
     z_cutoffs_file = NULL,
     threads = 1L
   )
-  required <- c("counts", "genotype_covariates", "gencode", "out_dir", "n_geno_pcs")
+  required <- c("counts", "genotype_covariates", "gencode", "out_dir")
   values <- defaults
   supplied <- character()
 
@@ -68,7 +68,9 @@ parse_cli <- function(arguments) {
     number
   }
 
-  values$n_geno_pcs <- parse_integer(values$n_geno_pcs, "n-geno-pcs", 1L)
+  if (!is.null(values$n_geno_pcs)) {
+    values$n_geno_pcs <- parse_integer(values$n_geno_pcs, "n-geno-pcs", 1L)
+  }
   values$threads <- parse_integer(values$threads, "threads", 1L)
   values$connectivity_z <- parse_number(values$connectivity_z, "connectivity-z")
   values$logcpm_drop <- parse_number(values$logcpm_drop, "logcpm-drop")
@@ -171,7 +173,7 @@ read_genotype_covariates <- function(path, sample_ids, n_geno_pcs) {
   if (any(!grepl("^Genotype_PC[1-9][0-9]*$", pc_columns))) {
     fail("Genotype-covariate TSV columns after sample_id must be named Genotype_PC1, Genotype_PC2, ...")
   }
-  needed <- paste0("Genotype_PC", seq_len(n_geno_pcs))
+  needed <- if (is.null(n_geno_pcs)) pc_columns else paste0("Genotype_PC", seq_len(n_geno_pcs))
   missing <- setdiff(needed, parsed$header)
   if (length(missing) > 0L) {
     fail(paste("Genotype-covariate TSV is missing required columns:", paste(missing, collapse = ", ")))
@@ -469,7 +471,7 @@ run_pipeline <- function(options) {
     available_rank,
     noise,
     noise_source,
-    options$n_geno_pcs,
+    ncol(genotype_covariates),
     phenotype_design,
     colnames(genotype_covariates),
     residual_design,

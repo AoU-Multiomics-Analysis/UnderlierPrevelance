@@ -5,7 +5,6 @@
   "main.rna_counts_gct": "tests/fixtures/rna_smoke_counts.gct",
   "main.rna_genotype_covariates_tsv": "tests/fixtures/rna_smoke_genotype_covariates.tsv",
   "main.rna_gencode_gff": "tests/fixtures/rna_smoke_annotation.gff3",
-  "main.rna_n_genotype_pcs": 2,
   "main.rna_phenotype_pc_noise": 0.25,
   "main.rna_conn_z": -3.0,
   "main.rna_logcpm_drop": 1.0,

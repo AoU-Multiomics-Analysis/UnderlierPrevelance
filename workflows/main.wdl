@@ -36,7 +36,7 @@ workflow main {
         counts_gct = select_first([rna_counts_gct]),
         genotype_covariates_tsv = select_first([rna_genotype_covariates_tsv]),
         gencode_gff = select_first([rna_gencode_gff]),
-        n_genotype_pcs = select_first([rna_n_genotype_pcs]),
+        n_genotype_pcs = rna_n_genotype_pcs,
         phenotype_pc_noise = rna_phenotype_pc_noise,
         conn_z = rna_conn_z,
         logcpm_drop = rna_logcpm_drop,

@@ -48,4 +48,14 @@ def test_rna_workflow_exposes_default_z_cutoff_range():
     assert f"Array[Float] z_cutoffs = [{expected_cutoffs}]" in workflow_text
     assert "Array[Float] rna_z_cutoffs" in main_text
     assert "--z-cutoffs-file" in workflow_text
+    assert "expected_artifacts=$((1 + ~{length(z_cutoffs)}))" in workflow_text
     assert "z_cutoffs" in r_script
+
+
+def test_genotype_pc_count_is_optional_and_defaults_to_all_columns():
+    workflow_text = (ROOT / "workflows" / "rna_underlier.wdl").read_text()
+    main_text = (ROOT / "workflows" / "main.wdl").read_text()
+    r_script = (ROOT / "scripts" / "run_rna_underlier.R").read_text()
+    assert workflow_text.count("Int? n_genotype_pcs") == 2
+    assert "Int? rna_n_genotype_pcs" in main_text
+    assert "if (is.null(n_geno_pcs)) pc_columns" in r_script

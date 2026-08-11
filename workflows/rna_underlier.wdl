@@ -34,7 +34,7 @@ task RunRnaUnderlier {
     File counts_tsv
     File genotype_covariates_tsv
     File gencode_gff
-    Int n_genotype_pcs
+    Int? n_genotype_pcs
     Float? phenotype_pc_noise
     Float conn_z
     Float logcpm_drop
@@ -54,12 +54,18 @@ task RunRnaUnderlier {
       phenotype_pc_noise_args=(--phenotype-pc-noise "$phenotype_pc_noise")
     fi
 
+    n_genotype_pcs="~{default="" n_genotype_pcs}"
+    n_genotype_pcs_args=()
+    if [[ -n "$n_genotype_pcs" ]]; then
+      n_genotype_pcs_args=(--n-geno-pcs "$n_genotype_pcs")
+    fi
+
     Rscript /opt/underlier-prevalence/scripts/run_rna_underlier.R \
       --counts "~{counts_tsv}" \
       --genotype-covariates "~{genotype_covariates_tsv}" \
       --gencode "~{gencode_gff}" \
       --out-dir rna_outputs \
-      --n-geno-pcs "~{n_genotype_pcs}" \
+      "${n_genotype_pcs_args[@]}" \
       --connectivity-z "~{conn_z}" \
       --logcpm-drop "~{logcpm_drop}" \
       --threads "~{threads}" \
@@ -72,12 +78,13 @@ task RunRnaUnderlier {
     shopt -s nullglob
     underlier_artifacts=(rna_outputs/underliers_*.tsv.gz)
     prevalence_artifacts=(rna_outputs/rna_outlier_prevalence_per_gene_*.tsv)
-    if [[ ${#underlier_artifacts[@]} -ne 2 ]]; then
-      echo "error: RNA analysis did not emit both underlier artifacts" >&2
+    expected_artifacts=$((1 + ~{length(z_cutoffs)}))
+    if [[ ${#underlier_artifacts[@]} -ne $expected_artifacts ]]; then
+      echo "error: RNA analysis emitted an unexpected number of underlier artifacts" >&2
       exit 2
     fi
-    if [[ ${#prevalence_artifacts[@]} -ne 2 ]]; then
-      echo "error: RNA analysis did not emit both prevalence artifacts" >&2
+    if [[ ${#prevalence_artifacts[@]} -ne $expected_artifacts ]]; then
+      echo "error: RNA analysis emitted an unexpected number of prevalence artifacts" >&2
       exit 2
     fi
   >>>
@@ -104,7 +111,7 @@ workflow rna_underlier {
     File counts_gct
     File genotype_covariates_tsv
     File gencode_gff
-    Int n_genotype_pcs
+    Int? n_genotype_pcs
     Float? phenotype_pc_noise
     Float conn_z = -3.0
     Float logcpm_drop = 1.0
