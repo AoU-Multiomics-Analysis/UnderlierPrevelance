@@ -70,6 +70,11 @@ SAMPLE_A	0.12	-1.03	...
 
 The table must contain one unique `sample_id` column, either first or last. The PC columns may be named `Genotype_PC1`, `Genotype_PC2`, ... or `GENETICPC1`, `GENETICPC2`, ...; they must be numbered consecutively and contain finite numeric values. Sample IDs must exactly match the GCT sample IDs. `rna_n_genotype_pcs` is optional: when supplied, it selects that many consecutive genotype-PC columns; when omitted, all genotype-PC columns are used. These PCs are precomputed inputs: this workflow intentionally performs no genotype-PC computation, VCF processing, PLINK conversion, GDS conversion, or LD pruning.
 
+When the counts and covariate tables contain different sample sets, the RNA
+workflow retains their intersection, in counts-table order, and reports the
+excluded counts and covariate samples as a warning. It fails if there are no
+shared samples.
+
 ### Analysis and interpretation
 
 After protein-coding filtering, expression filtering, Freeman–Tukey normalization, and connectivity QC, the workflow runs `PCAtools::pca` on the RNA expression data. It selects phenotype PCs with `PCAtools::chooseGavishDonoho`. By default, the noise variance is the median of the lower half of the PCA variance spectrum. Supply `rna_phenotype_pc_noise` to override that default with a validated, non-negative noise variance; the output metadata records whether the source was `lower_half_median` or `override`.

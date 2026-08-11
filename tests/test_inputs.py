@@ -310,6 +310,31 @@ def test_rna_covariates_reject_matching_trailing_delimiters_without_dependencies
     assert "Genotype-covariate TSV columns after sample_id" in result.stderr
 
 
+def test_rna_covariates_retain_intersection_in_requested_count_order(tmp_path):
+    covariates = tmp_path / "covariates.tsv"
+    covariates.write_text(
+        "sample_id\tGenotype_PC1\n"
+        "S3\t0.3\n"
+        "S1\t0.1\n"
+        "S4\t0.4\n"
+    )
+    program = (
+        "source('scripts/run_rna_underlier.R'); "
+        f"covariates <- read_genotype_covariates('{covariates}', c('S1', 'S2', 'S3'), 1L); "
+        "cat(paste(rownames(covariates), collapse = ','))"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        ["Rscript", "-e", program],
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "S1,S3"
+
+
 def test_rna_smoke_fixture_has_capacity_for_two_genotype_and_three_phenotype_pcs():
     samples, rows = read_gct_contract(FIXTURES / "rna_smoke_counts.gct")
     validate_covariates(FIXTURES / "rna_smoke_genotype_covariates.tsv", samples)

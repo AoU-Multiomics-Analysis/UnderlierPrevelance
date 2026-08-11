@@ -200,14 +200,27 @@ read_genotype_covariates <- function(path, sample_ids, n_geno_pcs) {
     fail("Genotype-covariate sample_id values must be nonempty and unique")
   }
   if (!setequal(covariate_samples, sample_ids) || length(covariate_samples) != length(sample_ids)) {
-    fail("Genotype-covariate sample_id values must exactly match counts TSV samples")
+    shared_samples <- sample_ids[sample_ids %in% covariate_samples]
+    if (length(shared_samples) == 0L) {
+      fail("Genotype-covariate sample_id values have no overlap with counts TSV samples")
+    }
+    warning(
+      paste0(
+        "Retaining ", length(shared_samples), " samples shared by counts and genotype covariates; ",
+        length(setdiff(sample_ids, covariate_samples)), " counts samples and ",
+        length(setdiff(covariate_samples, sample_ids)), " covariate samples were excluded"
+      ),
+      call. = FALSE
+    )
+  } else {
+    shared_samples <- sample_ids
   }
   all_covariates <- numeric_matrix(
     lapply(parsed$rows, function(row) row[-sample_column]), covariate_samples, pc_columns,
     "Genotype covariates"
   )
   colnames(all_covariates) <- canonical_pc_columns
-  all_covariates[sample_ids, needed, drop = FALSE]
+  all_covariates[shared_samples, needed, drop = FALSE]
 }
 
 parse_gff_attributes <- function(attributes) {
@@ -423,6 +436,7 @@ run_pipeline <- function(options) {
   genotype_covariates <- read_genotype_covariates(
     options$genotype_covariates, colnames(counts), options$n_geno_pcs
   )
+  counts <- counts[, rownames(genotype_covariates), drop = FALSE]
   gene_metadata <- read_gene_metadata(options$gencode)
   gene_nv <- sub("\\..*$", "", rownames(counts))
   coding <- match(gene_nv, gene_metadata$gene_nv)
