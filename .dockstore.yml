@@ -2,7 +2,10 @@ version: 1.2
 workflows:
   - subclass: WDL
     primaryDescriptorPath: /workflows/main.wdl
+    name: main
   - subclass: WDL
     primaryDescriptorPath: /workflows/rna_underlier.wdl
+    name: rna_underlier
   - subclass: WDL
     primaryDescriptorPath: /workflows/q2_incidence.wdl
+    name: q2_incidence
