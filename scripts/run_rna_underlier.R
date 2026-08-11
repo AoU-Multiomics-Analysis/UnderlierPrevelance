@@ -174,19 +174,28 @@ read_counts <- function(path) {
 
 read_genotype_covariates <- function(path, sample_ids, n_geno_pcs) {
   parsed <- read_tsv_rows(path, "Genotype covariates")
-  if (parsed$header[[1L]] != "sample_id" || anyDuplicated(parsed$header)) {
-    fail("Genotype-covariate TSV must begin with a unique sample_id column")
+  sample_column <- which(parsed$header == "sample_id")
+  if (length(sample_column) != 1L || anyDuplicated(parsed$header)) {
+    fail("Genotype-covariate TSV must contain one unique sample_id column")
   }
-  pc_columns <- parsed$header[-1L]
-  if (any(!grepl("^Genotype_PC[1-9][0-9]*$", pc_columns))) {
-    fail("Genotype-covariate TSV columns after sample_id must be named Genotype_PC1, Genotype_PC2, ...")
+  pc_columns <- parsed$header[-sample_column]
+  pc_numbers <- suppressWarnings(as.integer(sub("^(?:Genotype_PC|GENETICPC)", "", pc_columns)))
+  if (any(is.na(pc_numbers)) || anyDuplicated(pc_numbers) ||
+      !identical(sort(pc_numbers), seq_len(length(pc_numbers)))) {
+    fail("Genotype-covariate columns must be named Genotype_PC1... or GENETICPC1... without gaps")
   }
-  needed <- if (is.null(n_geno_pcs)) pc_columns else paste0("Genotype_PC", seq_len(n_geno_pcs))
-  missing <- setdiff(needed, parsed$header)
-  if (length(missing) > 0L) {
-    fail(paste("Genotype-covariate TSV is missing required columns:", paste(missing, collapse = ", ")))
+  pc_order <- order(pc_numbers)
+  pc_columns <- pc_columns[pc_order]
+  pc_numbers <- pc_numbers[pc_order]
+  canonical_pc_columns <- paste0("Genotype_PC", pc_numbers)
+  needed <- if (is.null(n_geno_pcs)) canonical_pc_columns else paste0("Genotype_PC", seq_len(n_geno_pcs))
+  if (!is.null(n_geno_pcs) && n_geno_pcs > length(canonical_pc_columns)) {
+    fail(paste0(
+      "Requested ", n_geno_pcs, " genotype PCs but the covariate TSV contains only ",
+      length(canonical_pc_columns)
+    ))
   }
-  covariate_samples <- vapply(parsed$rows, `[[`, character(1), 1L)
+  covariate_samples <- vapply(parsed$rows, `[[`, character(1), sample_column)
   if (any(!nzchar(covariate_samples)) || anyDuplicated(covariate_samples)) {
     fail("Genotype-covariate sample_id values must be nonempty and unique")
   }
@@ -194,9 +203,10 @@ read_genotype_covariates <- function(path, sample_ids, n_geno_pcs) {
     fail("Genotype-covariate sample_id values must exactly match counts TSV samples")
   }
   all_covariates <- numeric_matrix(
-    lapply(parsed$rows, function(row) row[-1L]), covariate_samples, pc_columns,
+    lapply(parsed$rows, function(row) row[-sample_column]), covariate_samples, pc_columns,
     "Genotype covariates"
   )
+  colnames(all_covariates) <- canonical_pc_columns
   all_covariates[sample_ids, needed, drop = FALSE]
 }
 

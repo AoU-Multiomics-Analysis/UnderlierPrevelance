@@ -52,7 +52,7 @@ sample_id	Genotype_PC1	Genotype_PC2	...
 SAMPLE_A	0.12	-1.03	...
 ```
 
-`sample_id` is the first, unique column. Every following column must be named `Genotype_PC1`, `Genotype_PC2`, and so on, and contain finite numeric values. Its sample IDs must exactly match the GCT sample IDs. `rna_n_genotype_pcs` is optional: when supplied, it selects that many consecutive genotype-PC columns; when omitted, all genotype-PC columns are used. These PCs are precomputed inputs: this workflow intentionally performs no genotype-PC computation, VCF processing, PLINK conversion, GDS conversion, or LD pruning.
+The table must contain one unique `sample_id` column, either first or last. The PC columns may be named `Genotype_PC1`, `Genotype_PC2`, ... or `GENETICPC1`, `GENETICPC2`, ...; they must be numbered consecutively and contain finite numeric values. Sample IDs must exactly match the GCT sample IDs. `rna_n_genotype_pcs` is optional: when supplied, it selects that many consecutive genotype-PC columns; when omitted, all genotype-PC columns are used. These PCs are precomputed inputs: this workflow intentionally performs no genotype-PC computation, VCF processing, PLINK conversion, GDS conversion, or LD pruning.
 
 ### Analysis and interpretation
 

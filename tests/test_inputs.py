@@ -153,6 +153,29 @@ def test_rna_cli_accepts_documented_hyphenated_flags_without_dependencies():
     assert result.stdout == "counts.tsv\tcovariates.tsv\tannotation.gff3\tout\t2\t0.25\t-3\t1\t-3\t1"
 
 
+def test_rna_accepts_geneticpc_columns_with_sample_id_last_without_dependencies(tmp_path):
+    covariates = tmp_path / "genetic-pcs.tsv"
+    covariates.write_text(
+        "GENETICPC1\tGENETICPC2\tsample_id\n"
+        "0.1\t0.2\t1266600\n"
+        "0.3\t0.4\t1355318\n"
+    )
+    program = (
+        "source('scripts/run_rna_underlier.R'); "
+        f"covariates <- read_genotype_covariates('{covariates}', c('1266600', '1355318'), NULL); "
+        "cat(colnames(covariates), rownames(covariates), covariates[1, 1], sep = '\\t')"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        ["Rscript", "-e", program],
+        check=True,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.stdout == "Genotype_PC1\tGenotype_PC2\t1266600\t1355318\t0.1"
+
+
 @pytest.mark.parametrize(
     ("matrix_values", "n_samples", "expected_error"),
     [

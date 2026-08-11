@@ -58,4 +58,4 @@ def test_genotype_pc_count_is_optional_and_defaults_to_all_columns():
     r_script = (ROOT / "scripts" / "run_rna_underlier.R").read_text()
     assert workflow_text.count("Int? n_genotype_pcs") == 2
     assert "Int? rna_n_genotype_pcs" in main_text
-    assert "if (is.null(n_geno_pcs)) pc_columns" in r_script
+    assert "if (is.null(n_geno_pcs)) canonical_pc_columns" in r_script
