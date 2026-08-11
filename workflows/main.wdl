@@ -7,7 +7,7 @@ workflow main {
   input {
     Boolean run_rna = false
     Boolean run_q2 = false
-    String docker_image = "underlier-prevalence:test"
+    String docker_image = "ghcr.io/aou-multiomics-analysis/underlierprevelance:main"
 
     File? rna_counts_gct
     File? rna_genotype_covariates_tsv

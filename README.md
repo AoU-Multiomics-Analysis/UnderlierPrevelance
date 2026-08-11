@@ -21,8 +21,9 @@ branch workflows can also be run directly.
 
 ## Quick start
 
-Build the supplied runtime image, then use the synthetic input JSON to smoke
-test both branches locally:
+For production, the WDL defaults to the image published at
+`ghcr.io/aou-multiomics-analysis/underlierprevelance:main`. To run locally,
+build a test image and override `docker_image` in the input JSON:
 
 ```bash
 docker build -f envs/Dockerfile -t underlier-prevalence:test .

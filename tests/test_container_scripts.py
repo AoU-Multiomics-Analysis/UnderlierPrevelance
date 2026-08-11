@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PRODUCTION_IMAGE = "ghcr.io/aou-multiomics-analysis/underlierprevelance:main"
 SCRIPT_NAMES = (
     "convert_gct.py",
     "run_rna_underlier.R",
@@ -62,6 +63,15 @@ def test_runtime_r_stack_is_declared_in_conda_environment():
         "r-magrittr",
     ):
         assert f"- {package}" in environment
+
+
+def test_production_image_is_published_and_used_by_wdl_defaults():
+    docker_workflow = (ROOT / ".github" / "workflows" / "docker-image.yml").read_text()
+    assert "push: true" in docker_workflow
+
+    for workflow_name in ("main.wdl", "rna_underlier.wdl", "q2_incidence.wdl"):
+        workflow_text = (ROOT / "workflows" / workflow_name).read_text()
+        assert f'docker_image = "{PRODUCTION_IMAGE}"' in workflow_text
 
 
 def test_rna_workflow_exposes_default_z_cutoff_range():

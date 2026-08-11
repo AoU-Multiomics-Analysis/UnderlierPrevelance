@@ -198,7 +198,7 @@ workflow q2_incidence {
     Float qual_min = 100.0
     Int threads = 1
     File? gene_whitelist
-    String docker_image = "underlier-prevalence:test"
+    String docker_image = "ghcr.io/aou-multiomics-analysis/underlierprevelance:main"
   }
 
   call StageVcfPairs {

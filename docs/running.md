@@ -6,7 +6,10 @@ The repository provides two WDL 1.0 workflows and a dispatcher:
 - `workflows/q2_incidence.wdl` filters cohort VCFs and computes per-gene q² incidence from ClinVar P/LP small variants.
 - `workflows/main.wdl` conditionally runs one or both branches.
 
-All WDL tasks use the configurable `docker_image` input, which defaults to `underlier-prevalence:test`. Build that image before local execution:
+All WDL tasks use the configurable `docker_image` input, which defaults to
+`ghcr.io/aou-multiomics-analysis/underlierprevelance:main`. For local
+execution, build a test image and set `docker_image` to
+`underlier-prevalence:test` in the input JSON:
 
 ```bash
 docker build -f envs/Dockerfile -t underlier-prevalence:test .

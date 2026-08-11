@@ -117,7 +117,7 @@ workflow rna_underlier {
     Float logcpm_drop = 1.0
     Int threads = 1
     Array[Float] z_cutoffs = [-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0]
-    String docker_image = "underlier-prevalence:test"
+    String docker_image = "ghcr.io/aou-multiomics-analysis/underlierprevelance:main"
   }
 
   call ConvertGct {
