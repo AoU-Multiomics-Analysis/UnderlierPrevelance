@@ -470,7 +470,9 @@ run_pipeline <- function(options) {
   if (!all(expression_pc_names %in% colnames(pca_result$rotated))) {
     fail("PCA output does not contain the selected phenotype-PC score columns")
   }
-  expression_pcs <- pca_result$rotated[kept_samples, expression_pc_names, drop = FALSE]
+  rotated_scores <- as.matrix(pca_result$rotated)
+  storage.mode(rotated_scores) <- "double"
+  expression_pcs <- rotated_scores[kept_samples, expression_pc_names, drop = FALSE]
   phenotype_design <- validate_covariate_design(
     expression_pcs, kept_samples, "Selected phenotype-PC adjustment"
   )

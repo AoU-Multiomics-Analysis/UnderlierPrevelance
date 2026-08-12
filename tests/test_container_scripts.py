@@ -98,3 +98,9 @@ def test_genotype_pc_count_is_optional_and_defaults_to_all_columns():
     assert workflow_text.count("Int? n_genotype_pcs") == 2
     assert "Int? rna_n_genotype_pcs" in main_text
     assert "if (is.null(n_geno_pcs)) canonical_pc_columns" in r_script
+
+
+def test_rna_pca_scores_are_coerced_to_numeric_matrix():
+    r_script = (ROOT / "scripts" / "run_rna_underlier.R").read_text()
+    assert "rotated_scores <- as.matrix(pca_result$rotated)" in r_script
+    assert 'storage.mode(rotated_scores) <- "double"' in r_script
