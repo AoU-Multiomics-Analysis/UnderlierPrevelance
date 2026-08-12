@@ -14,7 +14,7 @@
 - Genotype covariates must be TSV columns `sample_id`, `Genotype_PC1`, `Genotype_PC2`, and so on.
 - RNA processing must not invoke PLINK, GDS conversion, LD pruning, or genotype PCA.
 - Phenotype-PC count must be selected with `PCAtools::chooseGavishDonoho`.
-- Default GD noise variance is the median of the lower half of the PCA variance spectrum; an explicit override is supported.
+- Default GD noise variance is `1` under the unit-variance working convention; an explicit override is supported.
 - q² processing must accept VCF/index arrays and ClinVar VCF/index inputs.
 - Every WDL under `workflows/` must pass `miniwdl check`.
 
@@ -129,7 +129,7 @@ Parse the two GCT metadata lines, verify declared dimensions against the data, r
 
 - [ ] **Step 4: Implement the RNA analysis**
 
-Port the supplied R pipeline’s expression filtering, normalization, connectivity QC, log2-CPM adjustment, underlier definitions, and prevalence outputs. Replace genotype-PCA code with strict TSV validation and covariate selection. Run `PCAtools::pca`, estimate default noise as the median of the lower half of `pca$sdev^2`, call `PCAtools::chooseGavishDonoho`, clamp only to the available rank after rejecting zero-PC results, and write selected-PC metadata.
+Port the supplied R pipeline’s expression filtering, normalization, connectivity QC, log2-CPM adjustment, underlier definitions, and prevalence outputs. Replace genotype-PCA code with strict TSV validation and covariate selection. Run `PCAtools::pca`, use default noise variance `1` under the unit-variance working convention unless an explicit override is supplied, call `PCAtools::chooseGavishDonoho`, clamp only to the available rank after rejecting zero-PC results, and write selected-PC metadata.
 
 - [ ] **Step 5: Run the RNA unit/smoke test**
 
