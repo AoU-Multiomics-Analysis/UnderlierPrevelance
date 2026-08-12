@@ -291,17 +291,9 @@ connectivity_kept_samples <- function(normalized_expression, threshold) {
   kept
 }
 
-lower_half_noise <- function(variance_spectrum) {
-  if (length(variance_spectrum) == 0L || any(!is.finite(variance_spectrum)) || any(variance_spectrum < 0)) {
-    fail("PCA did not produce a finite variance spectrum")
-  }
-  start <- floor(length(variance_spectrum) / 2L) + 1L
-  noise <- stats::median(variance_spectrum[seq.int(start, length(variance_spectrum))])
-  if (!is.finite(noise)) {
-    fail("Default phenotype-PC noise from the lower PCA variance half must be finite")
-  }
-  noise
-}
+# PCAtools::chooseGavishDonoho expects the variance of the entry-level noise.
+# The INT/unit-variance working convention uses one as the temporary null.
+default_phenotype_pc_noise <- 1
 
 strict_output_tag <- function(z_cutoff) {
   formatted_cutoff <- format(z_cutoff, trim = TRUE, scientific = FALSE, digits = 15)
@@ -457,8 +449,8 @@ run_pipeline <- function(options) {
   if (available_rank < 1L) {
     fail("PCA returned no available phenotype-PC components")
   }
-  noise_source <- if (is.null(options$phenotype_pc_noise)) "lower_half_median" else "override"
-  noise <- if (is.null(options$phenotype_pc_noise)) lower_half_noise(variance_spectrum) else options$phenotype_pc_noise
+  noise_source <- if (is.null(options$phenotype_pc_noise)) "unit_variance_default" else "override"
+  noise <- if (is.null(options$phenotype_pc_noise)) default_phenotype_pc_noise else options$phenotype_pc_noise
   selected_raw <- PCAtools::chooseGavishDonoho(
     as.matrix(qc_normalized), var.explained = variance_spectrum, noise = noise
   )

@@ -38,7 +38,7 @@ Processing:
 9. Regress out the selected phenotype PCs plus the requested genotype-PC columns.
 10. Compute standardized residual expression z-scores, join them to PC-adjusted log2-CPM values, and emit haplo and strict underlier definitions.
 
-The default GD noise variance is the median of the lower half of the available PCA variance spectrum. An explicit `phenotype_pc_noise` override is supported for analyses that have a validated noise estimate.
+The default GD noise variance is `1`, corresponding to the unit-variance working convention for the expression measurements. An explicit `phenotype_pc_noise` override is supported for analyses that have a validated noise estimate.
 
 Outputs:
 
@@ -118,4 +118,3 @@ CI will run WDL syntax checks and lightweight tests. A documented local/containe
 - VCF input is accepted directly by the q² workflow, with required indexes and explicit filtering.
 - The dispatcher can run either branch independently or both together.
 - Synthetic tests cover parser, alignment, PC-selection wiring, q² filtering, and WDL validation.
-

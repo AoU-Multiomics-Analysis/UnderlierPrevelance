@@ -77,7 +77,7 @@ shared samples.
 
 ### Analysis and interpretation
 
-After protein-coding filtering, expression filtering, Freeman–Tukey normalization, and connectivity QC, the workflow runs `PCAtools::pca` on the RNA expression data. It selects phenotype PCs with `PCAtools::chooseGavishDonoho`. By default, the noise variance is the median of the lower half of the PCA variance spectrum. Supply `rna_phenotype_pc_noise` to override that default with a validated, non-negative noise variance; the output metadata records whether the source was `lower_half_median` or `override`.
+After protein-coding filtering, expression filtering, Freeman–Tukey normalization, and connectivity QC, the workflow runs `PCAtools::pca` on the RNA expression data. It selects phenotype PCs with `PCAtools::chooseGavishDonoho`. By default, the noise variance is `1`, corresponding to the unit-variance working convention for the expression measurements. Supply `rna_phenotype_pc_noise` to override that default with a validated, non-negative noise variance; the output metadata records whether the source was `unit_variance_default` or `override`.
 
 The selected phenotype PCs and requested precomputed genotype PCs are regressed from the normalized expression used for z-scores. The selected phenotype PCs are also regressed from log2-CPM before calls are made. The `selected_phenotype_pcs.tsv` metadata records the Gavish–Donoho result, available rank, noise value/source, PC columns, design ranks, residual degrees of freedom, and post-QC sample/gene counts.
 

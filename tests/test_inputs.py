@@ -166,6 +166,22 @@ def test_rna_cli_accepts_documented_hyphenated_flags_without_dependencies():
     assert result.stdout == "counts.tsv\tcovariates.tsv\tannotation.gff3\tout\t2\t0.25\t-3\t1\t-3\t1"
 
 
+def test_rna_default_phenotype_pc_noise_is_unit_variance_without_dependencies():
+    parser_program = (
+        "source('scripts/run_rna_underlier.R'); "
+        "cat(default_phenotype_pc_noise, sep = '\\t')"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        ["Rscript", "-e", parser_program],
+        check=True,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.stdout == "1"
+
+
 def test_rna_accepts_geneticpc_columns_with_sample_id_last_without_dependencies(tmp_path):
     covariates = tmp_path / "genetic-pcs.tsv"
     covariates.write_text(
