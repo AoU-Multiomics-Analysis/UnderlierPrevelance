@@ -81,18 +81,20 @@ After protein-coding filtering, expression filtering, Freeman–Tukey normalizat
 
 The selected phenotype PCs and requested precomputed genotype PCs are regressed from the normalized expression used for z-scores. The selected phenotype PCs are also regressed from log2-CPM before calls are made. The `selected_phenotype_pcs.tsv` metadata records the Gavish–Donoho result, available rank, noise value/source, PC columns, design ranks, residual degrees of freedom, and post-QC sample/gene counts.
 
-For each gene, an observation must first have PC-adjusted log2-CPM less than that gene's mean PC-adjusted log2-CPM minus `rna_logcpm_drop` (default `1`). This expression-drop definition is the **haplo** call. The workflow then evaluates strict calls at configurable residual expression-z-score cutoffs. By default, `rna_z_cutoffs`/`z_cutoffs` contains `-1` through `-10` in increments of `1`, producing one underlier and prevalence output pair per cutoff. The thresholding loop reuses the same adjusted expression and z-score results; it does not rerun PCA or residualization.
+For each gene, an observation must first have PC-adjusted log2-CPM less than that gene's mean PC-adjusted log2-CPM minus `rna_logcpm_drop` (default `1`). This expression-drop definition is the **haplo** call. The workflow evaluates strict calls at configurable residual expression-z-score cutoffs both with and without that haplo filter. By default, `rna_z_cutoffs`/`z_cutoffs` contains `-1` through `-10` in increments of `1`, producing one haplo-only pair and two underlier/prevalence output pairs per cutoff. The thresholding loop reuses the same adjusted expression and z-score results; it does not rerun PCA or residualization.
 
 ### RNA outputs
 
-At the `rna_underlier.wdl` interface, the RNA branch exposes named `converted_counts_tsv`, `selected_pc_metadata`, and `expr_z_join` outputs plus three `Array[File]` outputs: `underlier_artifacts`, `prevalence_artifacts`, and `all_rna_artifacts`. The named outputs map to `counts.tsv`, `selected_phenotype_pcs.tsv`, and `expr_z_join.tsv.gz`, respectively. `all_rna_artifacts` is the complete `glob("rna_outputs/*")` collection, so it includes all RNA output files rather than only the two underlier and two prevalence artifacts. The following files are members of the narrower artifact arrays; they are not individually named WDL output fields.
+At the `rna_underlier.wdl` interface, the RNA branch exposes named `converted_counts_tsv`, `selected_pc_metadata`, and `expr_z_join` outputs plus three `Array[File]` outputs: `underlier_artifacts`, `prevalence_artifacts`, and `all_rna_artifacts`. The named outputs map to `counts.tsv`, `selected_phenotype_pcs.tsv`, and `expr_z_join.tsv.gz`, respectively. `all_rna_artifacts` is the complete `glob("rna_outputs/*")` collection, so it includes all RNA output files rather than only the underlier and prevalence artifact arrays. The following files are members of the narrower artifact arrays; they are not individually named WDL output fields.
 
 | Artifact array | File | Meaning |
 | --- | --- |
 | `underlier_artifacts` | `underliers_haplo.tsv.gz` | Calls meeting the expression-drop criterion. |
-| `underlier_artifacts` | `underliers_z_<cutoff>.tsv.gz` | Calls meeting both the haplo criterion and `expression_zscore < cutoff`; defaults are `-1` through `-10`. |
+| `underlier_artifacts` | `underliers_z_<cutoff>.tsv.gz` | Z-score-only calls meeting `expression_zscore < cutoff`; defaults are `-1` through `-10`. |
+| `underlier_artifacts` | `underliers_haplo_z_<cutoff>.tsv.gz` | Calls meeting both the haplo criterion and `expression_zscore < cutoff>`. |
 | `prevalence_artifacts` | `rna_outlier_prevalence_per_gene_haplo.tsv` | Per-gene prevalence for haplo calls. |
-| `prevalence_artifacts` | `rna_outlier_prevalence_per_gene_z_<cutoff>.tsv` | Per-gene prevalence for each configured strict cutoff. |
+| `prevalence_artifacts` | `rna_outlier_prevalence_per_gene_z_<cutoff>.tsv` | Per-gene prevalence for z-score-only calls at each configured cutoff. |
+| `prevalence_artifacts` | `rna_outlier_prevalence_per_gene_haplo_z_<cutoff>.tsv` | Per-gene prevalence for calls meeting both haplo and the configured z cutoff. |
 
 Each prevalence table contains `gene_id`, version-stripped `gene_nv`, `symbol`, `n_underlier_subjects`, `n_subjects_tested`, and `rna_outlier_prevalence = n_underlier_subjects / n_subjects_tested`. Subjects are counted once per gene even if a table could otherwise contain duplicate rows.
 

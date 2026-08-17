@@ -182,6 +182,37 @@ def test_rna_default_phenotype_pc_noise_is_unit_variance_without_dependencies():
     assert result.stdout == "1"
 
 
+def test_rna_call_definitions_distinguish_z_only_and_haplo_intersection():
+    program = (
+        "source('scripts/run_rna_underlier.R'); "
+        "expr_z_join <- data.frame("
+        "gene_id = rep('G1', 5), "
+        "subjectid = paste0('S', 1:5), "
+        "expression_logcpm = c(0, -4, -1.5, -1.5, -1.5), "
+        "expression_zscore = c(0, -4, -3.5, -3, 0)); "
+        "z_only <- call_underliers(expr_z_join, -3, 1, require_haplo = FALSE); "
+        "haplo_z <- call_underliers(expr_z_join, -3, 1, require_haplo = TRUE); "
+        "stopifnot(identical(z_only$subjectid, c('S2', 'S3'))); "
+        "stopifnot(identical(haplo_z$subjectid, 'S2')); "
+        "gene_metadata <- data.frame(gene_nv = 'G1', symbol = 'GENE1'); "
+        "z_prevalence <- prevalence_by_gene(z_only, gene_metadata, 5); "
+        "haplo_z_prevalence <- prevalence_by_gene(haplo_z, gene_metadata, 5); "
+        "stopifnot(z_prevalence$n_underlier_subjects == 2); "
+        "stopifnot(haplo_z_prevalence$n_underlier_subjects == 1); "
+        "cat('z-only=', paste(z_only$subjectid, collapse = ','), "
+        "' haplo-z=', paste(haplo_z$subjectid, collapse = ','), sep = '')"
+    )
+    environment = os.environ | {"TOPMED_RNA_UNDERLIER_NO_MAIN": "1"}
+    result = subprocess.run(
+        ["Rscript", "-e", program],
+        check=True,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.stdout == "z-only=S2,S3 haplo-z=S2"
+
+
 def test_rna_accepts_geneticpc_columns_with_sample_id_last_without_dependencies(tmp_path):
     covariates = tmp_path / "genetic-pcs.tsv"
     covariates.write_text(
@@ -407,8 +438,10 @@ def test_rna_smoke_fixture_emits_core_outputs(tmp_path):
         "expr_z_join.tsv.gz",
         "underliers_haplo.tsv.gz",
         "underliers_z_-3.tsv.gz",
+        "underliers_haplo_z_-3.tsv.gz",
         "rna_outlier_prevalence_per_gene_haplo.tsv",
         "rna_outlier_prevalence_per_gene_z_-3.tsv",
+        "rna_outlier_prevalence_per_gene_haplo_z_-3.tsv",
     ]
     assert all((out_dir / output).is_file() for output in expected_outputs)
     metadata = dict(
