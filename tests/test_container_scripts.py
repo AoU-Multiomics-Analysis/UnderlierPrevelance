@@ -87,7 +87,7 @@ def test_rna_workflow_exposes_default_z_cutoff_range():
     assert f"Array[Float] z_cutoffs = [{expected_cutoffs}]" in workflow_text
     assert "Array[Float] rna_z_cutoffs" in main_text
     assert "--z-cutoffs-file" in workflow_text
-    assert "expected_artifacts=$((1 + ~{length(z_cutoffs)}))" in workflow_text
+    assert "expected_artifacts=$((1 + 2 * ~{length(z_cutoffs)}))" in workflow_text
     assert "z_cutoffs" in r_script
 
 
