@@ -47,9 +47,10 @@ before matching ClinVar P/LP small variants.
 
 ## Outputs
 
-The RNA branch writes residual-expression z-scores, two underlier call tables,
-two per-gene prevalence tables, and metadata documenting Gavish–Donoho
-phenotype-PC selection. The q² branch writes the filtered/indexed VCF and a
-per-gene table with `q`, `incidence = q²`, and the supplied
+The RNA branch writes residual-expression z-scores, haplo-only calls, z-score-only
+calls, haplo-plus-z-score intersection calls, their per-gene prevalence tables,
+and metadata documenting Gavish–Donoho phenotype-PC selection. The q² branch
+writes the filtered/indexed VCF and a per-gene table with `q`, `incidence = q²`,
+and the supplied
 `carrier_freq = 1 - (1 - q)²` semantics. See [docs/running.md](docs/running.md)
 for precise definitions.
