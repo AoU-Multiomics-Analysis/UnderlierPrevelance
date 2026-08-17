@@ -381,13 +381,16 @@ long_expression <- function(expression, value_name) {
   ) |> stats::setNames(c("gene_id", "subjectid", value_name))
 }
 
-call_underliers <- function(expr_z_join, z_cutoff, logcpm_drop) {
+call_underliers <- function(expr_z_join, z_cutoff, logcpm_drop, require_haplo = TRUE) {
   gene_means <- stats::ave(expr_z_join$expression_logcpm, expr_z_join$gene_id, FUN = mean)
   expr_z_join$gene_mean_logcpm <- gene_means
-  underliers <- expr_z_join[
-    expr_z_join$expression_logcpm < expr_z_join$gene_mean_logcpm - logcpm_drop,
-    , drop = FALSE
-  ]
+  underliers <- expr_z_join
+  if (require_haplo) {
+    underliers <- underliers[
+      underliers$expression_logcpm < underliers$gene_mean_logcpm - logcpm_drop,
+      , drop = FALSE
+    ]
+  }
   if (!is.null(z_cutoff)) {
     underliers <- underliers[underliers$expression_zscore < z_cutoff, , drop = FALSE]
   }
@@ -506,14 +509,24 @@ run_pipeline <- function(options) {
   )
   write_tsv(metadata, output_path("selected_phenotype_pcs.tsv"))
 
-  definitions <- c(
-    list(list(tag = "haplo", z_cutoff = NULL)),
-    lapply(options$z_cutoffs, function(z_cutoff) {
-      list(tag = strict_output_tag(z_cutoff), z_cutoff = z_cutoff)
-    })
-  )
+  definitions <- list(list(tag = "haplo", z_cutoff = NULL, require_haplo = TRUE))
+  for (z_cutoff in options$z_cutoffs) {
+    tag <- strict_output_tag(z_cutoff)
+    definitions <- c(
+      definitions,
+      list(
+        list(tag = tag, z_cutoff = z_cutoff, require_haplo = FALSE),
+        list(tag = paste0("haplo_", tag), z_cutoff = z_cutoff, require_haplo = TRUE)
+      )
+    )
+  }
   for (definition in definitions) {
-    underliers <- call_underliers(expr_z_join, definition$z_cutoff, options$logcpm_drop)
+    underliers <- call_underliers(
+      expr_z_join,
+      definition$z_cutoff,
+      options$logcpm_drop,
+      definition$require_haplo
+    )
     write_tsv(underliers, output_path(paste0("underliers_", definition$tag, ".tsv.gz")))
     prevalence <- prevalence_by_gene(underliers, gene_metadata, length(kept_samples))
     write_tsv(
