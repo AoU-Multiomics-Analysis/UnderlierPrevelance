@@ -78,7 +78,7 @@ task RunRnaUnderlier {
     shopt -s nullglob
     underlier_artifacts=(rna_outputs/underliers_*.tsv.gz)
     prevalence_artifacts=(rna_outputs/rna_outlier_prevalence_per_gene_*.tsv)
-    expected_artifacts=$((1 + ~{length(z_cutoffs)}))
+    expected_artifacts=$((1 + 2 * ~{length(z_cutoffs)}))
     if [[ ${#underlier_artifacts[@]} -ne $expected_artifacts ]]; then
       echo "error: RNA analysis emitted an unexpected number of underlier artifacts" >&2
       exit 2
